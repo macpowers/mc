@@ -248,6 +248,14 @@
       <label>Role / notes</label>
       <textarea id="fRole" placeholder="e.g. Youngest daughter, reluctant heir"></textarea>
     </div>
+    <div class="field">
+      <label>Occupation</label>
+      <input type="text" id="fOccupation" placeholder="e.g. Seamstress">
+    </div>
+    <div class="field">
+      <label>Interesting facts</label>
+      <textarea id="fFacts" placeholder="e.g. Smuggled letters across the border during the war"></textarea>
+    </div>
     <div class="fieldRow">
       <div class="field">
         <label>Place of birth</label>
@@ -901,11 +909,14 @@
         const aliveTags = [c.alive1858?'alive 1858':null, c.alive1875?'alive 1875':null].filter(Boolean).join(', ');
         const placePart = c.birthplace && c.residence ? `b. ${c.birthplace} → ${c.residence}` : (c.birthplace ? `b. ${c.birthplace}` : (c.residence ? `lives: ${c.residence}` : ''));
         const extras = [years, placePart, marriagePart, aliveTags].filter(Boolean).join(' · ');
+        const roleLine = [c.role, c.occupation].filter(Boolean).join(' · ');
+        const factsLine = c.facts ? escapeHtml(c.facts.length>70 ? c.facts.slice(0,69)+'…' : c.facts) : '';
         return `<div class="listItem" data-charid="${c.id}">
           <div class="info">
             <span class="dot" style="background:${surnameColor(c.name)};display:inline-block;margin-right:2px;"></span>
             <span class="t1">${escapeHtml(c.name)}</span>
-            <div class="t2">${escapeHtml(c.role||'')}${extras?' · '+extras:''}</div>
+            <div class="t2">${escapeHtml(roleLine)}${extras?' · '+extras:''}</div>
+            ${factsLine ? `<div class="t2" style="font-style:italic;opacity:0.8;">${factsLine}</div>` : ''}
           </div>
           <button class="del" data-delchar="${c.id}" title="Delete">✕</button>
         </div>`;
@@ -963,6 +974,8 @@
     document.getElementById('charModalTitle').textContent = 'New character';
     document.getElementById('fName').value = '';
     document.getElementById('fRole').value = '';
+    document.getElementById('fOccupation').value = '';
+    document.getElementById('fFacts').value = '';
     document.getElementById('fBirth').value = '';
     document.getElementById('fDeath').value = '';
     document.getElementById('fBirthplace').value = '';
@@ -981,6 +994,8 @@
     document.getElementById('charModalTitle').textContent = 'Edit character';
     document.getElementById('fName').value = c.name;
     document.getElementById('fRole').value = c.role||'';
+    document.getElementById('fOccupation').value = c.occupation||'';
+    document.getElementById('fFacts').value = c.facts||'';
     document.getElementById('fBirth').value = c.birth ?? '';
     document.getElementById('fDeath').value = c.death ?? '';
     document.getElementById('fBirthplace').value = c.birthplace || '';
@@ -1000,6 +1015,8 @@
     const name = document.getElementById('fName').value.trim();
     if(!name){ document.getElementById('fName').focus(); return; }
     const role = document.getElementById('fRole').value.trim();
+    const occupation = document.getElementById('fOccupation').value.trim();
+    const facts = document.getElementById('fFacts').value.trim();
     const birthVal = document.getElementById('fBirth').value;
     const deathVal = document.getElementById('fDeath').value;
     const birth = birthVal===''? null : parseInt(birthVal,10);
@@ -1013,12 +1030,13 @@
 
     if(editingCharId){
       const c = getChar(editingCharId);
-      c.name = name; c.role = role; c.birth = birth; c.death = death; c.birthplace = birthplace;
+      c.name = name; c.role = role; c.occupation = occupation; c.facts = facts;
+      c.birth = birth; c.death = death; c.birthplace = birthplace;
       c.residence = residence;
       c.marriageYear = marriageYear; c.alive1858 = alive1858; c.alive1875 = alive1875;
     } else {
       state.characters.push({
-        id: uid(), name, role, birth, death, birthplace, residence, marriageYear, alive1858, alive1875,
+        id: uid(), name, role, occupation, facts, birth, death, birthplace, residence, marriageYear, alive1858, alive1875,
         x: 80 + (state.characters.length%5)*40,
         y: 80 + Math.floor(state.characters.length/5)*40
       });
