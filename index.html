@@ -623,7 +623,7 @@
       byDepth[depth[c.id]].push(c.id);
     });
 
-    const rowGap = 135, colGap = 46;
+    const rowGap = 150, colGap = 95;
     const order = {}; // id -> x-order index within its row (float, can shift to average children)
 
     // initial pass: order by existing x within row, or original array order
@@ -681,7 +681,7 @@
         let prev = -Infinity;
         paired.forEach((id, i)=>{
           const isSpouseOfPrev = i>0 && spouseMap[id] && spouseMap[id].has(paired[i-1]);
-          const gap = isSpouseOfPrev ? 0.62 : 1;
+          const gap = isSpouseOfPrev ? 0.82 : 1;
           if(prev===-Infinity){ order[id] = 0; }
           else if(order[id] < prev + gap){ order[id] = prev + gap; }
           prev = order[id];
