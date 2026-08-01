@@ -112,6 +112,16 @@
   #legend .row{display:flex;align-items:center;gap:7px;color:var(--text-muted);}
   #legend .swatch{width:16px;height:3px;border-radius:2px;}
 
+  #zoomControls{
+    position:absolute;bottom:14px;right:14px;display:flex;flex-direction:column;gap:6px;
+  }
+  #zoomControls button{
+    width:34px;height:34px;padding:0;font-size:17px;line-height:1;
+    background:rgba(34,29,23,0.92);backdrop-filter:blur(2px);
+    display:flex;align-items:center;justify-content:center;
+  }
+  #zoomControls button#btnZoomFit{font-size:14px;}
+
   #emptyState{
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     flex-direction:column;gap:14px;pointer-events:none;text-align:center;padding:20px;
@@ -174,6 +184,7 @@
     #mobileTabs button{border-radius:20px;border:none;padding:8px 18px;font-size:12.5px;}
     #mobileTabs button.active{background:var(--parchment);color:var(--text-dark);}
     #legend{bottom:64px;}
+    #zoomControls{bottom:64px;}
   }
 </style>
 </head>
@@ -204,6 +215,11 @@
         <g id="cardLayer"></g>
       </svg>
       <div id="legend"></div>
+      <div id="zoomControls">
+        <button id="btnZoomIn" title="Zoom in">+</button>
+        <button id="btnZoomOut" title="Zoom out">−</button>
+        <button id="btnZoomFit" title="Fit to screen">⛶</button>
+      </div>
       <div id="emptyState">
         <h3>An empty stage</h3>
         <p>Add your first character to begin mapping the cast.</p>
@@ -401,6 +417,7 @@
   let treeId = 'main';
   let lastSavedJSON = null;
   let realtimeChannel = null;
+  let camera = null; // {x,y,w,h} in SVG user units — persists across re-renders
 
   // ---------- Config ----------
   function getConfig(){
@@ -708,14 +725,27 @@
     return {x1:ca.x, y1:ca.y, x2:cb.x, y2:cb.y};
   }
 
-  function renderCanvas(){
-    // compute bounding box for viewBox
+  function contentBounds(){
     let maxX = 800, maxY = 600;
     state.characters.forEach(c=>{
       maxX = Math.max(maxX, c.x + CARD_W + 100);
       maxY = Math.max(maxY, c.y + CARD_H + 100);
     });
-    svg.setAttribute('viewBox', `0 0 ${maxX} ${maxY}`);
+    return {maxX, maxY};
+  }
+
+  function applyCamera(){
+    svg.setAttribute('viewBox', `${camera.x} ${camera.y} ${camera.w} ${camera.h}`);
+  }
+
+  function fitView(){
+    const {maxX, maxY} = contentBounds();
+    camera = {x:0, y:0, w:maxX, h:maxY};
+    applyCamera();
+  }
+
+  function renderCanvas(){
+    if(!camera) fitView(); else applyCamera();
 
     edgeLayer.innerHTML = '';
     cardLayer.innerHTML = '';
@@ -885,22 +915,87 @@
 
   // ---------- Pan ----------
   (function setupPan(){
-    let panning=false, sx=0, sy=0, vb=null;
+    let panning=false, sx=0, sy=0;
     svg.addEventListener('pointerdown', (e)=>{
       if(e.target !== svg) return;
       panning = true; svg.classList.add('panning');
       sx=e.clientX; sy=e.clientY;
-      vb = svg.viewBox.baseVal;
     });
     svg.addEventListener('pointermove', (e)=>{
-      if(!panning) return;
-      const scale = vb.width / svg.clientWidth;
-      vb.x -= (e.clientX-sx)*scale;
-      vb.y -= (e.clientY-sy)*scale;
+      if(!panning || !camera) return;
+      const scale = camera.w / svg.clientWidth;
+      camera.x -= (e.clientX-sx)*scale;
+      camera.y -= (e.clientY-sy)*scale;
       sx=e.clientX; sy=e.clientY;
+      applyCamera();
     });
     window.addEventListener('pointerup', ()=>{ panning=false; svg.classList.remove('panning'); });
   })();
+
+  // ---------- Zoom ----------
+  const ZOOM_MIN = 300, ZOOM_MAX = 6000;
+
+  function zoomAt(clientX, clientY, factor){
+    if(!camera) return;
+    const rect = svg.getBoundingClientRect();
+    const px = (clientX - rect.left) / rect.width;   // 0..1 across viewport
+    const py = (clientY - rect.top) / rect.height;
+    const worldX = camera.x + px * camera.w;
+    const worldY = camera.y + py * camera.h;
+
+    let newW = camera.w * factor;
+    newW = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, newW));
+    const actualFactor = newW / camera.w;
+    const newH = camera.h * actualFactor;
+
+    camera.x = worldX - px * newW;
+    camera.y = worldY - py * newH;
+    camera.w = newW;
+    camera.h = newH;
+    applyCamera();
+  }
+
+  function zoomAtCenter(factor){
+    const rect = svg.getBoundingClientRect();
+    zoomAt(rect.left + rect.width/2, rect.top + rect.height/2, factor);
+  }
+
+  svg.addEventListener('wheel', (e)=>{
+    e.preventDefault();
+    const factor = e.deltaY > 0 ? 1.12 : 1/1.12;
+    zoomAt(e.clientX, e.clientY, factor);
+  }, {passive:false});
+
+  // pinch-to-zoom (touch)
+  (function setupPinch(){
+    let pinchStartDist = null, pinchStartW = null, midX=0, midY=0;
+    svg.addEventListener('touchstart', (e)=>{
+      if(e.touches.length===2 && camera){
+        const [t1,t2] = e.touches;
+        pinchStartDist = Math.hypot(t2.clientX-t1.clientX, t2.clientY-t1.clientY);
+        pinchStartW = camera.w;
+        midX = (t1.clientX+t2.clientX)/2;
+        midY = (t1.clientY+t2.clientY)/2;
+      }
+    }, {passive:true});
+    svg.addEventListener('touchmove', (e)=>{
+      if(e.touches.length===2 && pinchStartDist && camera){
+        e.preventDefault();
+        const [t1,t2] = e.touches;
+        const dist = Math.hypot(t2.clientX-t1.clientX, t2.clientY-t1.clientY);
+        const targetW = pinchStartW * (pinchStartDist/dist); // pinch out (larger dist) -> smaller w -> zoom in
+        const factor = targetW / camera.w;
+        zoomAt(midX, midY, factor);
+      }
+    }, {passive:false});
+    svg.addEventListener('touchend', (e)=>{
+      if(e.touches.length<2) pinchStartDist = null;
+    });
+  })();
+
+  document.getElementById('btnZoomIn').addEventListener('click', ()=> zoomAtCenter(1/1.3));
+  document.getElementById('btnZoomOut').addEventListener('click', ()=> zoomAtCenter(1.3));
+  document.getElementById('btnZoomFit').addEventListener('click', ()=>{ fitView(); });
 
   // ---------- Legend ----------
   function renderLegend(){
