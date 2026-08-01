@@ -248,9 +248,15 @@
       <label>Role / notes</label>
       <textarea id="fRole" placeholder="e.g. Youngest daughter, reluctant heir"></textarea>
     </div>
-    <div class="field">
-      <label>Place of birth</label>
-      <input type="text" id="fBirthplace" placeholder="e.g. Marseille">
+    <div class="fieldRow">
+      <div class="field">
+        <label>Place of birth</label>
+        <input type="text" id="fBirthplace" placeholder="e.g. Marseille">
+      </div>
+      <div class="field">
+        <label>Place of residence</label>
+        <input type="text" id="fResidence" placeholder="e.g. Lyon">
+      </div>
     </div>
     <div class="fieldRow">
       <div class="field">
@@ -374,7 +380,7 @@
     other:  {label:'connected to', hex:'var(--c-other)', color:'#8A8378'}
   };
 
-  const CARD_W = 158, CARD_H = 64;
+  const CARD_W = 158, CARD_H = 40;
   const DB_NAME = 'familyTreeDB', STORE = 'state';
   const CFG_KEY = 'familyTree.supabaseConfig';
 
@@ -593,7 +599,7 @@
       byDepth[depth[c.id]].push(c.id);
     });
 
-    const rowGap = 150, colGap = 70;
+    const rowGap = 120, colGap = 70;
     const order = {}; // id -> x-order index within its row (float, can shift to average children)
 
     // initial pass: order by existing x within row, or original array order
@@ -773,55 +779,12 @@
       body.setAttribute('rx', 7);
       g.appendChild(body);
 
-      const aliveFlags = [];
-      if(c.alive1858) aliveFlags.push('1858');
-      if(c.alive1875) aliveFlags.push('1875');
-      aliveFlags.forEach((yr, i)=>{
-        const bx = CARD_W - 34, by = 9 + i*15;
-        const chip = document.createElementNS('http://www.w3.org/2000/svg','rect');
-        chip.setAttribute('x', bx); chip.setAttribute('y', by);
-        chip.setAttribute('width', 30); chip.setAttribute('height', 13);
-        chip.setAttribute('rx', 3);
-        chip.setAttribute('fill', '#6E8A6F');
-        chip.setAttribute('opacity', '0.85');
-        g.appendChild(chip);
-        const chipText = document.createElementNS('http://www.w3.org/2000/svg','text');
-        chipText.setAttribute('x', bx + 15); chipText.setAttribute('y', by + 10);
-        chipText.setAttribute('text-anchor', 'middle');
-        chipText.setAttribute('font-family', "'JetBrains Mono', monospace");
-        chipText.setAttribute('font-size', 8.5);
-        chipText.setAttribute('fill', '#F1E4C4');
-        chipText.textContent = "'" + yr.slice(2);
-        g.appendChild(chipText);
-      });
-
       const nameText = document.createElementNS('http://www.w3.org/2000/svg','text');
       nameText.setAttribute('class','name');
-      nameText.setAttribute('x', 10); nameText.setAttribute('y', 24);
+      nameText.setAttribute('x', 10); nameText.setAttribute('y', CARD_H/2 + 5);
       nameText.setAttribute('font-size', 14);
       nameText.textContent = truncate(c.name, 20);
       g.appendChild(nameText);
-
-      if(c.role){
-        const roleText = document.createElementNS('http://www.w3.org/2000/svg','text');
-        roleText.setAttribute('class','role');
-        roleText.setAttribute('x', 10); roleText.setAttribute('y', 40);
-        roleText.setAttribute('font-size', 10.5);
-        roleText.textContent = truncate(c.role, 26);
-        g.appendChild(roleText);
-      }
-
-      if(c.birth || c.death || c.birthplace || c.marriageYear){
-        const yearsText = document.createElementNS('http://www.w3.org/2000/svg','text');
-        yearsText.setAttribute('class','years');
-        yearsText.setAttribute('x', 10); yearsText.setAttribute('y', 55);
-        yearsText.setAttribute('font-size', 10);
-        const yearsPart = (c.birth || c.death) ? `${c.birth||'?'} – ${c.death||'…'}` : '';
-        const marriagePart = c.marriageYear ? `m. ${c.marriageYear}` : '';
-        const combined = [yearsPart, c.birthplace, marriagePart].filter(Boolean).join('  ·  ');
-        yearsText.textContent = truncate(combined, 30);
-        g.appendChild(yearsText);
-      }
 
       g.addEventListener('click', (e)=>{
         if(g.classList.contains('wasDragged')){ g.classList.remove('wasDragged'); return; }
@@ -936,7 +899,8 @@
         const years = (c.birth||c.death) ? `${c.birth||'?'}–${c.death||'…'}` : '';
         const marriagePart = c.marriageYear ? `m. ${c.marriageYear}` : '';
         const aliveTags = [c.alive1858?'alive 1858':null, c.alive1875?'alive 1875':null].filter(Boolean).join(', ');
-        const extras = [years, c.birthplace, marriagePart, aliveTags].filter(Boolean).join(' · ');
+        const placePart = c.birthplace && c.residence ? `b. ${c.birthplace} → ${c.residence}` : (c.birthplace ? `b. ${c.birthplace}` : (c.residence ? `lives: ${c.residence}` : ''));
+        const extras = [years, placePart, marriagePart, aliveTags].filter(Boolean).join(' · ');
         return `<div class="listItem" data-charid="${c.id}">
           <div class="info">
             <span class="dot" style="background:${surnameColor(c.name)};display:inline-block;margin-right:2px;"></span>
@@ -1002,6 +966,7 @@
     document.getElementById('fBirth').value = '';
     document.getElementById('fDeath').value = '';
     document.getElementById('fBirthplace').value = '';
+    document.getElementById('fResidence').value = '';
     document.getElementById('fMarriageYear').value = '';
     document.getElementById('fAlive1858').checked = false;
     document.getElementById('fAlive1875').checked = false;
@@ -1019,6 +984,7 @@
     document.getElementById('fBirth').value = c.birth ?? '';
     document.getElementById('fDeath').value = c.death ?? '';
     document.getElementById('fBirthplace').value = c.birthplace || '';
+    document.getElementById('fResidence').value = c.residence || '';
     document.getElementById('fMarriageYear').value = c.marriageYear ?? '';
     document.getElementById('fAlive1858').checked = !!c.alive1858;
     document.getElementById('fAlive1875').checked = !!c.alive1875;
@@ -1039,6 +1005,7 @@
     const birth = birthVal===''? null : parseInt(birthVal,10);
     const death = deathVal===''? null : parseInt(deathVal,10);
     const birthplace = document.getElementById('fBirthplace').value.trim();
+    const residence = document.getElementById('fResidence').value.trim();
     const marriageYearVal = document.getElementById('fMarriageYear').value;
     const marriageYear = marriageYearVal===''? null : parseInt(marriageYearVal,10);
     const alive1858 = document.getElementById('fAlive1858').checked;
@@ -1047,10 +1014,11 @@
     if(editingCharId){
       const c = getChar(editingCharId);
       c.name = name; c.role = role; c.birth = birth; c.death = death; c.birthplace = birthplace;
+      c.residence = residence;
       c.marriageYear = marriageYear; c.alive1858 = alive1858; c.alive1875 = alive1875;
     } else {
       state.characters.push({
-        id: uid(), name, role, birth, death, birthplace, marriageYear, alive1858, alive1875,
+        id: uid(), name, role, birth, death, birthplace, residence, marriageYear, alive1858, alive1875,
         x: 80 + (state.characters.length%5)*40,
         y: 80 + Math.floor(state.characters.length/5)*40
       });
