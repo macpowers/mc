@@ -282,6 +282,10 @@
       <input type="text" id="fPhysical" placeholder="e.g. Tall, red hair, walks with a limp">
     </div>
     <div class="field">
+      <label>Personality traits</label>
+      <input type="text" id="fPersonality" placeholder="e.g. Stubborn, warm-hearted, quick to laugh">
+    </div>
+    <div class="field">
       <label>Interesting facts</label>
       <textarea id="fFacts" placeholder="e.g. Smuggled letters across the border during the war"></textarea>
     </div>
@@ -654,7 +658,7 @@
       byDepth[depth[c.id]].push(c.id);
     });
 
-    const rowGap = 150, colGap = 70;
+    const rowGap = 260, colGap = 115;
     const order = {}; // id -> x-order index within its row (float, can shift to average children)
 
     // initial pass: order by existing x within row, or original array order
@@ -712,7 +716,7 @@
         let prev = -Infinity;
         paired.forEach((id, i)=>{
           const isSpouseOfPrev = i>0 && spouseMap[id] && spouseMap[id].has(paired[i-1]);
-          const gap = isSpouseOfPrev ? 0.82 : 1;
+          const gap = isSpouseOfPrev ? 0.82 : 1.15;
           if(prev===-Infinity){ order[id] = 0; }
           else if(order[id] < prev + gap){ order[id] = prev + gap; }
           prev = order[id];
@@ -782,40 +786,89 @@
     cardLayer.innerHTML = '';
 
     // edges
+    const spouseKeys = new Set();
+    state.relationships.forEach(r=>{
+      if(r.type==='spouse') spouseKeys.add([r.a,r.b].sort().join('|'));
+    });
+
+    const parentRelsByChild = {};
+    state.relationships.forEach(rel=>{
+      if(rel.type==='parent'){
+        (parentRelsByChild[rel.b] = parentRelsByChild[rel.b] || []).push(rel);
+      }
+    });
+
+    function drawFamilyLine(x1, y1, x2, y2, dimEdge, tooltip, onClick){
+      const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+      path.setAttribute('d', `M ${x1} ${y1} L ${x2} ${y2}`);
+      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+      g.setAttribute('class', 'edge-family' + (dimEdge ? ' edge-dim' : ''));
+      g.appendChild(path);
+
+      const hit = document.createElementNS('http://www.w3.org/2000/svg','path');
+      hit.setAttribute('class','edge-hit');
+      hit.setAttribute('d', `M ${x1} ${y1} L ${x2} ${y2}`);
+      hit.addEventListener('click', onClick);
+      g.appendChild(hit);
+
+      [[x1,y1],[x2,y2]].forEach(([px,py])=>{
+        const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        dot.setAttribute('cx', px); dot.setAttribute('cy', py);
+        dot.setAttribute('r', 3); dot.setAttribute('fill', 'var(--c-parent)');
+        g.appendChild(dot);
+      });
+
+      const titleEl = document.createElementNS('http://www.w3.org/2000/svg','title');
+      titleEl.textContent = tooltip;
+      g.appendChild(titleEl);
+
+      edgeLayer.appendChild(g);
+    }
+
+    Object.keys(parentRelsByChild).forEach(childId=>{
+      const edges = parentRelsByChild[childId];
+      const child = getChar(childId);
+      if(!child) return;
+
+      // if this child has exactly two recorded parents who are spouses of each
+      // other, draw one shared line from the couple's midpoint — avoids doubling
+      // up lines for large families with many kids under one couple
+      if(edges.length === 2){
+        const p1 = getChar(edges[0].a), p2 = getChar(edges[1].a);
+        const key = [edges[0].a, edges[1].a].sort().join('|');
+        if(p1 && p2 && spouseKeys.has(key)){
+          const x1 = (p1.x + p2.x)/2 + CARD_W/2;
+          const y1 = Math.max(p1.y, p2.y) + CARD_H;
+          const x2 = child.x + CARD_W/2, y2 = child.y;
+          const dimEdge = highlightedId && ![edges[0].a, edges[1].a, childId].includes(highlightedId);
+          drawFamilyLine(x1, y1, x2, y2, dimEdge,
+            `${p1.name} & ${p2.name} are parents of ${child.name}`,
+            ()=> openRelForEdit(edges[0].id));
+          return;
+        }
+      }
+
+      // otherwise draw each parent link individually
+      edges.forEach(rel=>{
+        const a = getChar(rel.a);
+        if(!a) return;
+        const x1 = a.x + CARD_W/2, y1 = a.y + CARD_H;
+        const x2 = child.x + CARD_W/2, y2 = child.y;
+        const dimEdge = highlightedId && rel.a !== highlightedId && rel.b !== highlightedId;
+        drawFamilyLine(x1, y1, x2, y2, dimEdge,
+          `${a.name} is a parent of ${child.name}`,
+          ()=> openRelForEdit(rel.id));
+      });
+    });
+
     state.relationships.forEach(rel=>{
       const a = getChar(rel.a), b = getChar(rel.b);
       if(!a || !b) return;
+      if(rel.type === 'parent') return; // handled above
       const meta = REL_META[rel.type] || REL_META.other;
       const dimEdge = highlightedId && rel.a !== highlightedId && rel.b !== highlightedId;
 
-      if(rel.type === 'parent'){
-        const x1 = a.x + CARD_W/2, y1 = a.y + CARD_H;
-        const x2 = b.x + CARD_W/2, y2 = b.y;
-        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-        path.setAttribute('d', `M ${x1} ${y1} L ${x2} ${y2}`);
-        const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-        g.setAttribute('class', 'edge-family' + (dimEdge ? ' edge-dim' : ''));
-        g.appendChild(path);
-
-        const hit = document.createElementNS('http://www.w3.org/2000/svg','path');
-        hit.setAttribute('class','edge-hit');
-        hit.setAttribute('d', `M ${x1} ${y1} L ${x2} ${y2}`);
-        hit.addEventListener('click', ()=> openRelForEdit(rel.id));
-        g.appendChild(hit);
-
-        [[x1,y1],[x2,y2]].forEach(([px,py])=>{
-          const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
-          dot.setAttribute('cx', px); dot.setAttribute('cy', py);
-          dot.setAttribute('r', 3); dot.setAttribute('fill', 'var(--c-parent)');
-          g.appendChild(dot);
-        });
-
-        const titleEl = document.createElementNS('http://www.w3.org/2000/svg','title');
-        titleEl.textContent = `${a.name} is a parent of ${b.name}`;
-        g.appendChild(titleEl);
-
-        edgeLayer.appendChild(g);
-      } else {
+      {
         const ca = cardCenter(a), cb = cardCenter(b);
         const mx = (ca.x+cb.x)/2, my = (ca.y+cb.y)/2;
         const dx = cb.x-ca.x, dy = cb.y-ca.y;
@@ -1106,7 +1159,7 @@
         const residenceList = Array.isArray(c.residences) ? c.residences.filter(Boolean) : (c.residence ? [c.residence] : []);
         const residencesStr = residenceList.join(', ');
         const placePart = c.birthplace && residencesStr ? `b. ${c.birthplace} → ${residencesStr}` : (c.birthplace ? `b. ${c.birthplace}` : (residencesStr ? `lived in: ${residencesStr}` : ''));
-        const extras = [years, placePart, marriagePart, aliveTags, c.physical].filter(Boolean).join(' · ');
+        const extras = [years, placePart, marriagePart, aliveTags, c.physical, c.personality].filter(Boolean).join(' · ');
         const roleLine = [c.role, c.occupation].filter(Boolean).join(' · ');
         const factsLine = c.facts ? escapeHtml(c.facts.length>70 ? c.facts.slice(0,69)+'…' : c.facts) : '';
         return `<div class="listItem" data-charid="${c.id}">
@@ -1216,6 +1269,7 @@
     document.getElementById('fRole').value = '';
     document.getElementById('fOccupation').value = '';
     document.getElementById('fPhysical').value = '';
+    document.getElementById('fPersonality').value = '';
     document.getElementById('fFacts').value = '';
     document.getElementById('fBirth').value = '';
     document.getElementById('fDeath').value = '';
@@ -1239,6 +1293,7 @@
     document.getElementById('fRole').value = c.role||'';
     document.getElementById('fOccupation').value = c.occupation||'';
     document.getElementById('fPhysical').value = c.physical||'';
+    document.getElementById('fPersonality').value = c.personality||'';
     document.getElementById('fFacts').value = c.facts||'';
     document.getElementById('fBirth').value = c.birth ?? '';
     document.getElementById('fDeath').value = c.death ?? '';
@@ -1263,6 +1318,7 @@
     const role = document.getElementById('fRole').value.trim();
     const occupation = document.getElementById('fOccupation').value.trim();
     const physical = document.getElementById('fPhysical').value.trim();
+    const personality = document.getElementById('fPersonality').value.trim();
     const facts = document.getElementById('fFacts').value.trim();
     const birthVal = document.getElementById('fBirth').value;
     const deathVal = document.getElementById('fDeath').value;
@@ -1277,13 +1333,13 @@
 
     if(editingCharId){
       const c = getChar(editingCharId);
-      c.name = name; c.role = role; c.occupation = occupation; c.physical = physical; c.facts = facts;
+      c.name = name; c.role = role; c.occupation = occupation; c.physical = physical; c.personality = personality; c.facts = facts;
       c.birth = birth; c.death = death; c.birthplace = birthplace;
       c.residences = residences; delete c.residence;
       c.marriageYear = marriageYear; c.alive1858 = alive1858; c.alive1875 = alive1875;
     } else {
       state.characters.push({
-        id: uid(), name, role, occupation, physical, facts, birth, death, birthplace, residences, marriageYear, alive1858, alive1875,
+        id: uid(), name, role, occupation, physical, personality, facts, birth, death, birthplace, residences, marriageYear, alive1858, alive1875,
         x: 80 + (state.characters.length%5)*40,
         y: 80 + Math.floor(state.characters.length/5)*40
       });
