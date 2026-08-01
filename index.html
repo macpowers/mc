@@ -19,7 +19,7 @@
     --text-muted: #B7AB90;
     --text-dark: #2B2620;
     --gold: #D8C9A0;
-    --c-parent: #D8C9A0;
+    --c-parent: #F1E4C4;
     --c-spouse: #B5484A;
     --c-sibling: #6E8A6F;
     --c-friend: #6C8CAE;
@@ -73,9 +73,11 @@
   .card.dragging{cursor:grabbing;}
   .card.faded{opacity:0.22;}
   .card.faded-partial{opacity:0.55;}
+  .edge-dim{opacity:0.08 !important;}
+  .card.highlighted rect.body{stroke-width:2.4;stroke:#E8D7AC;}
 
-  .edge-family path{fill:none;stroke:var(--c-parent);stroke-width:2;}
-  .edge-thread path{fill:none;stroke-width:2;fill:none;}
+  .edge-family path{fill:none;stroke:var(--c-parent);stroke-width:2.6;stroke-linecap:round;}
+  .edge-thread path{fill:none;stroke-width:1.7;fill:none;opacity:0.7;}
   .edge-thread .tagbg{fill:var(--bg);opacity:0.92;}
   .edge-thread text{font-family:'Inter',sans-serif;font-size:10px;font-weight:500;}
   .edge-hit{fill:none;stroke:transparent;stroke-width:14;cursor:pointer;}
@@ -403,7 +405,7 @@
     other:  {label:'connected to', hex:'var(--c-other)', color:'#8A8378'}
   };
 
-  const CARD_W = 158, CARD_H = 40;
+  const CARD_W = 210, CARD_H = 40;
   const DB_NAME = 'familyTreeDB', STORE = 'state';
   const CFG_KEY = 'familyTree.supabaseConfig';
 
@@ -412,6 +414,7 @@
   let editingCharId = null;
   let contemporariesMode = false;
   let activeContemporary = null;
+  let highlightedId = null;
   let saveTimer = null;
   let supa = null;
   let treeId = 'main';
@@ -623,7 +626,7 @@
       byDepth[depth[c.id]].push(c.id);
     });
 
-    const rowGap = 150, colGap = 95;
+    const rowGap = 150, colGap = 70;
     const order = {}; // id -> x-order index within its row (float, can shift to average children)
 
     // initial pass: order by existing x within row, or original array order
@@ -755,6 +758,7 @@
       const a = getChar(rel.a), b = getChar(rel.b);
       if(!a || !b) return;
       const meta = REL_META[rel.type] || REL_META.other;
+      const dimEdge = highlightedId && rel.a !== highlightedId && rel.b !== highlightedId;
 
       if(rel.type === 'parent'){
         const x1 = a.x + CARD_W/2, y1 = a.y + CARD_H;
@@ -763,7 +767,7 @@
         const path = document.createElementNS('http://www.w3.org/2000/svg','path');
         path.setAttribute('d', `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`);
         const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-        g.setAttribute('class','edge-family');
+        g.setAttribute('class', 'edge-family' + (dimEdge ? ' edge-dim' : ''));
         g.appendChild(path);
         edgeLayer.appendChild(g);
       } else {
@@ -776,7 +780,7 @@
         const cx = mx + nx*curveOffset, cy = my + ny*curveOffset;
 
         const g = document.createElementNS('http://www.w3.org/2000/svg','g');
-        g.setAttribute('class','edge-thread');
+        g.setAttribute('class', 'edge-thread' + (dimEdge ? ' edge-dim' : ''));
 
         const path = document.createElementNS('http://www.w3.org/2000/svg','path');
         path.setAttribute('d', `M ${ca.x} ${ca.y} Q ${cx} ${cy} ${cb.x} ${cb.y}`);
@@ -829,8 +833,12 @@
           if(overlap === 'unknown') opacityClass = 'faded-partial';
           else if(!overlap) opacityClass = 'faded';
         }
+      } else if(highlightedId){
+        const connected = relatedChars(highlightedId);
+        if(c.id !== highlightedId && !connected.has(c.id)) opacityClass = 'faded';
       }
       if(opacityClass) g.classList.add(opacityClass);
+      if(highlightedId === c.id) g.classList.add('highlighted');
 
       const stripe = document.createElementNS('http://www.w3.org/2000/svg','rect');
       stripe.setAttribute('class','stripe');
@@ -851,17 +859,28 @@
       nameText.setAttribute('class','name');
       nameText.setAttribute('x', 10); nameText.setAttribute('y', CARD_H/2 + 5);
       nameText.setAttribute('font-size', 14);
-      nameText.textContent = truncate(c.name, 20);
+      nameText.textContent = truncate(c.name, 27);
       g.appendChild(nameText);
+
+      const titleEl = document.createElementNS('http://www.w3.org/2000/svg','title');
+      titleEl.textContent = highlightedId === c.id ? 'Click again to edit' : 'Click to highlight connections · Double-click to edit';
+      g.appendChild(titleEl);
 
       g.addEventListener('click', (e)=>{
         if(g.classList.contains('wasDragged')){ g.classList.remove('wasDragged'); return; }
         if(contemporariesMode){
           activeContemporary = activeContemporary === c.id ? null : c.id;
           renderCanvas();
-        } else {
+        } else if(highlightedId === c.id){
           openCharForEdit(c.id);
+        } else {
+          highlightedId = c.id;
+          renderCanvas();
         }
+      });
+      g.addEventListener('dblclick', (e)=>{
+        e.stopPropagation();
+        openCharForEdit(c.id);
       });
 
       makeDraggable(g, c);
@@ -915,21 +934,28 @@
 
   // ---------- Pan ----------
   (function setupPan(){
-    let panning=false, sx=0, sy=0;
+    let panning=false, sx=0, sy=0, moved=false;
     svg.addEventListener('pointerdown', (e)=>{
       if(e.target !== svg) return;
       panning = true; svg.classList.add('panning');
-      sx=e.clientX; sy=e.clientY;
+      sx=e.clientX; sy=e.clientY; moved=false;
     });
     svg.addEventListener('pointermove', (e)=>{
       if(!panning || !camera) return;
+      if(Math.abs(e.clientX-sx)>3 || Math.abs(e.clientY-sy)>3) moved = true;
       const scale = camera.w / svg.clientWidth;
       camera.x -= (e.clientX-sx)*scale;
       camera.y -= (e.clientY-sy)*scale;
       sx=e.clientX; sy=e.clientY;
       applyCamera();
     });
-    window.addEventListener('pointerup', ()=>{ panning=false; svg.classList.remove('panning'); });
+    window.addEventListener('pointerup', (e)=>{
+      if(panning && !moved && highlightedId){
+        highlightedId = null;
+        renderCanvas();
+      }
+      panning=false; svg.classList.remove('panning');
+    });
   })();
 
   // ---------- Zoom ----------
@@ -1183,6 +1209,7 @@
     state.characters = state.characters.filter(c=>c.id!==id);
     state.relationships = state.relationships.filter(r=>r.a!==id && r.b!==id);
     if(activeContemporary===id) activeContemporary=null;
+    if(highlightedId===id) highlightedId=null;
     renderAll();
     scheduleSave();
   }
@@ -1292,6 +1319,7 @@
   document.getElementById('btnContemp').addEventListener('click', (e)=>{
     contemporariesMode = !contemporariesMode;
     activeContemporary = null;
+    highlightedId = null;
     e.target.closest('button').style.background = contemporariesMode ? 'var(--parchment)' : '';
     e.target.closest('button').style.color = contemporariesMode ? 'var(--text-dark)' : '';
     renderCanvas();
