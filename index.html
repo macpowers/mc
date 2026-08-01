@@ -3,30 +3,30 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
-<title>Family Tree</title>
+<title>Au creux du Rocher</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <style>
   :root{
-    --bg: #221D17;
-    --bg-panel: #2A241C;
-    --bg-panel-2: #322B21;
-    --ink: #3A2F22;
-    --parchment: #F1E4C4;
-    --parchment-2: #E8D7AC;
-    --text-light: #EFE6D2;
-    --text-muted: #B7AB90;
-    --text-dark: #2B2620;
-    --gold: #D8C9A0;
-    --c-parent: #F1E4C4;
-    --c-spouse: #B5484A;
-    --c-sibling: #6E8A6F;
-    --c-friend: #6C8CAE;
-    --c-rival: #C97B3D;
-    --c-mentor: #9575B5;
-    --c-other: #8A8378;
-    --border: #443B2E;
+    --bg: #F3F1EA;
+    --bg-panel: #FFFFFF;
+    --bg-panel-2: #F3F1EA;
+    --ink: #1F3A3D;
+    --parchment: #FFFFFF;
+    --parchment-2: #EDEAE0;
+    --text-light: #2B2822;
+    --text-muted: #8A8578;
+    --text-dark: #24221D;
+    --gold: #C9A96B;
+    --c-parent: #A9B3B1;
+    --c-spouse: #2F6F6B;
+    --c-sibling: #6F9A6C;
+    --c-friend: #5D84B0;
+    --c-rival: #C77A3E;
+    --c-mentor: #8E72B5;
+    --c-other: #9A9488;
+    --border: #E3DFD3;
   }
   *{box-sizing:border-box;}
   html,body{margin:0;padding:0;height:100%;background:var(--bg);font-family:'Inter',sans-serif;color:var(--text-light);overflow:hidden;}
@@ -40,7 +40,7 @@
   }
   header h1{
     font-family:'Fraunces',serif;font-weight:700;font-size:22px;
-    margin:0;letter-spacing:0.3px;color:var(--parchment);
+    margin:0;letter-spacing:0.3px;color:var(--ink);
   }
   header .sub{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;letter-spacing:0.5px;margin-top:2px;}
   header .titles{display:flex;flex-direction:column;}
@@ -50,35 +50,37 @@
     background:var(--bg-panel-2);color:var(--text-light);border:1px solid var(--border);
     border-radius:6px;padding:7px 12px;cursor:pointer;transition:background .15s, border-color .15s;
   }
-  button:hover{background:#3D362A;border-color:#5A4E3B;}
-  button.primary{background:var(--parchment);color:var(--text-dark);border-color:var(--parchment);}
-  button.primary:hover{background:#E8D7AC;}
+  button:hover{background:#EAE7DC;border-color:#D4CFBF;}
+  button.primary{background:var(--ink);color:#FFFFFF;border-color:var(--ink);}
+  button.primary:hover{background:#15292C;}
   button:focus-visible, [tabindex]:focus-visible, input:focus-visible, select:focus-visible{outline:2px solid var(--c-friend);outline-offset:2px;}
   #saveStatus{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;min-width:78px;}
 
   #main{flex:1;display:flex;min-height:0;}
-  #canvasPanel{flex:1;position:relative;overflow:hidden;background:
-    radial-gradient(ellipse at top left, #2C2619 0%, #201B14 60%);
+  #canvasPanel{flex:1;position:relative;overflow:hidden;touch-action:none;background:
+    radial-gradient(ellipse at top left, #FAF8F2 0%, #EFEBDF 60%);
   }
-  #canvasPanel svg{width:100%;height:100%;display:block;cursor:grab;}
+  #canvasPanel svg{width:100%;height:100%;display:block;cursor:grab;touch-action:none;}
   #canvasPanel svg.panning{cursor:grabbing;}
 
   .card{cursor:pointer;}
-  .card rect.body{fill:var(--parchment);stroke:var(--ink);stroke-width:1.3;}
+  .card rect.body{fill:var(--parchment);stroke:var(--border);stroke-width:1.3;filter:drop-shadow(0 1px 3px rgba(30,25,15,0.14));}
   .card rect.stripe{stroke:none;}
-  .card text.name{font-family:'Fraunces',serif;font-weight:600;fill:var(--text-dark);}
+  .card circle.avatar{stroke:#FFFFFF;stroke-width:1.5;}
+  .card text.avatarInitials{font-family:'Inter',sans-serif;font-weight:600;fill:#FFFFFF;text-anchor:middle;}
+  .card text.name{font-family:'Inter',sans-serif;font-weight:600;fill:var(--text-dark);}
   .card text.role{font-family:'Inter',sans-serif;fill:#6B5D46;}
   .card text.years{font-family:'JetBrains Mono',monospace;fill:#8A7A5C;}
-  .card:hover rect.body{stroke-width:2;}
+  .card:hover rect.body{stroke:#C7C1AF;stroke-width:1.6;}
   .card.dragging{cursor:grabbing;}
   .card.faded{opacity:0.22;}
   .card.faded-partial{opacity:0.55;}
   .edge-dim{opacity:0.08 !important;}
-  .card.highlighted rect.body{stroke-width:2.4;stroke:#E8D7AC;}
+  .card.highlighted rect.body{stroke-width:2.2;stroke:var(--ink);}
 
-  .edge-family path{fill:none;stroke:var(--c-parent);stroke-width:2.6;stroke-linecap:round;}
-  .edge-thread path{fill:none;stroke-width:1.7;fill:none;opacity:0.7;}
-  .edge-thread .tagbg{fill:var(--bg);opacity:0.92;}
+  .edge-family path{fill:none;stroke:var(--c-parent);stroke-width:2.2;stroke-linecap:round;}
+  .edge-thread path{fill:none;stroke-width:1.7;fill:none;opacity:0.85;}
+  .edge-thread .tagbg{fill:#FFFFFF;opacity:0.95;}
   .edge-thread text{font-family:'Inter',sans-serif;font-size:10px;font-weight:500;}
   .edge-hit{fill:none;stroke:transparent;stroke-width:14;cursor:pointer;}
 
@@ -87,7 +89,7 @@
     display:flex;flex-direction:column;min-height:0;
   }
   .panelHeader{padding:14px 16px 10px;border-bottom:1px solid var(--border);}
-  .panelHeader h2{margin:0 0 4px;font-family:'Fraunces',serif;font-size:15px;color:var(--parchment);}
+  .panelHeader h2{margin:0 0 4px;font-family:'Fraunces',serif;font-size:15px;color:var(--ink);}
   .panelHeader p{margin:0;font-size:11.5px;color:var(--text-muted);}
   #castList, #relList{flex:1;overflow-y:auto;padding:8px 10px;}
   .listItem{
@@ -101,14 +103,15 @@
   .listItem .t2{font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .listItem .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
   .listItem button.del{background:none;border:none;color:#8A7A5C;font-size:15px;padding:2px 6px;border-radius:4px;}
-  .listItem button.del:hover{background:#4A2020;color:#E0A0A0;}
+  .listItem button.del:hover{background:#F6DCDC;color:#B5484A;}
   .panelDivider{border-top:1px solid var(--border);}
   .panelFoot{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;}
 
   #legend{
-    position:absolute;bottom:14px;left:14px;background:rgba(34,29,23,0.92);
+    position:absolute;bottom:14px;left:14px;background:rgba(255,255,255,0.95);
     border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:11.5px;
     display:none;flex-direction:column;gap:5px;backdrop-filter:blur(2px);
+    box-shadow:0 4px 18px rgba(30,25,15,0.08);
   }
   #legend.show{display:flex;}
   #legend .row{display:flex;align-items:center;gap:7px;color:var(--text-muted);}
@@ -119,8 +122,9 @@
   }
   #zoomControls button{
     width:34px;height:34px;padding:0;font-size:17px;line-height:1;
-    background:rgba(34,29,23,0.92);backdrop-filter:blur(2px);
+    background:rgba(255,255,255,0.95);backdrop-filter:blur(2px);
     display:flex;align-items:center;justify-content:center;
+    box-shadow:0 4px 18px rgba(30,25,15,0.08);
   }
   #zoomControls button#btnZoomFit{font-size:14px;}
 
@@ -129,7 +133,7 @@
     flex-direction:column;gap:14px;pointer-events:none;text-align:center;padding:20px;
   }
   #emptyState.hide{display:none;}
-  #emptyState h3{font-family:'Fraunces',serif;font-size:20px;color:var(--parchment);margin:0;font-weight:600;}
+  #emptyState h3{font-family:'Fraunces',serif;font-size:20px;color:var(--ink);margin:0;font-weight:600;}
   #emptyState p{color:var(--text-muted);font-size:13px;max-width:280px;margin:0;}
   #emptyState button{pointer-events:auto;}
 
@@ -167,7 +171,7 @@
   .modal button.danger{background:#B5484A;color:#fff;border-color:#B5484A;}
   .modal button.danger:hover{background:#9E3D3F;}
   .modal button.primary{background:var(--ink);color:var(--parchment);border-color:var(--ink);}
-  .modal button.primary:hover{background:#4A3D2C;}
+  .modal button.primary:hover{background:#15292C;}
   .modal button.ghost{background:transparent;border-color:#C9B98C;color:var(--text-dark);}
 
   #relForm select, #relForm input{margin-bottom:2px;}
@@ -187,11 +191,11 @@
     #canvasPanel.hide{display:none;}
     #mobileTabs{
       display:flex;position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
-      background:rgba(34,29,23,0.95);border:1px solid var(--border);border-radius:24px;
-      padding:4px;gap:4px;z-index:6;
+      background:rgba(255,255,255,0.97);border:1px solid var(--border);border-radius:24px;
+      padding:4px;gap:4px;z-index:6;box-shadow:0 4px 18px rgba(30,25,15,0.1);
     }
     #mobileTabs button{border-radius:20px;border:none;padding:8px 18px;font-size:12.5px;}
-    #mobileTabs button.active{background:var(--parchment);color:var(--text-dark);}
+    #mobileTabs button.active{background:var(--ink);color:#FFFFFF;}
     #legend{bottom:64px;}
     #zoomControls{bottom:64px;}
   }
@@ -201,7 +205,7 @@
 <div id="app">
   <header>
     <div class="titles">
-      <h1>Family Tree</h1>
+      <h1>Au creux du Rocher</h1>
       <div class="sub">a map of who belongs to whom</div>
     </div>
     <div class="toolbar">
@@ -265,17 +269,27 @@
 <div class="modalOverlay" id="charModalOverlay">
   <div class="modal">
     <h3 id="charModalTitle">New character</h3>
-    <div class="field">
-      <label>Name</label>
-      <input type="text" id="fName" placeholder="e.g. Eleanor Voss">
+    <div class="fieldRow">
+      <div class="field">
+        <label>Given name</label>
+        <input type="text" id="fName" placeholder="e.g. Eleanor">
+      </div>
+      <div class="field">
+        <label>Family name</label>
+        <input type="text" id="fFamilyName" placeholder="e.g. Voss">
+      </div>
     </div>
     <div class="field">
-      <label>Role / notes</label>
-      <textarea id="fRole" placeholder="e.g. Youngest daughter, reluctant heir"></textarea>
+      <label>Nickname</label>
+      <input type="text" id="fNickname" placeholder="e.g. Nell">
     </div>
     <div class="field">
       <label>Occupation</label>
       <input type="text" id="fOccupation" placeholder="e.g. Seamstress">
+    </div>
+    <div class="field">
+      <label>Role / notes</label>
+      <textarea id="fRole" placeholder="e.g. Youngest daughter, reluctant heir"></textarea>
     </div>
     <div class="field">
       <label>Physical characteristics</label>
@@ -290,6 +304,10 @@
       <textarea id="fFacts" placeholder="e.g. Smuggled letters across the border during the war"></textarea>
     </div>
     <div class="field">
+      <label>Notes</label>
+      <textarea id="fNotes" placeholder="Anything else worth remembering about this character"></textarea>
+    </div>
+    <div class="field">
       <label>Place of birth</label>
       <input type="text" id="fBirthplace" list="birthplaceOptions" placeholder="e.g. Marseille — pick or type a new one">
       <datalist id="birthplaceOptions"></datalist>
@@ -302,28 +320,81 @@
     </div>
     <div class="fieldRow">
       <div class="field">
-        <label>Birth year</label>
-        <input type="number" id="fBirth" placeholder="optional">
+        <label>Birth date</label>
+        <input type="date" id="fBirthDate">
       </div>
       <div class="field">
-        <label>Death year</label>
-        <input type="number" id="fDeath" placeholder="optional">
+        <label>Death date</label>
+        <input type="date" id="fDeathDate">
       </div>
     </div>
     <div class="field">
-      <label>Year of marriage</label>
-      <input type="number" id="fMarriageYear" placeholder="optional">
+      <label>Date of marriage</label>
+      <input type="date" id="fMarriageDate">
+    </div>
+
+    <div style="font-weight:600;font-size:13px;color:#6B5D46;margin:16px 0 8px;border-top:1px solid #DCD5C0;padding-top:14px;">Story tagging</div>
+    <div class="fieldRow">
+      <div class="field" style="display:flex;align-items:center;gap:6px;">
+        <input type="checkbox" id="fTome1" style="width:auto;">
+        <label style="margin:0;text-transform:none;font-size:13px;">Appears in Tome 1</label>
+      </div>
+      <div class="field" style="display:flex;align-items:center;gap:6px;">
+        <input type="checkbox" id="fTome2" style="width:auto;">
+        <label style="margin:0;text-transform:none;font-size:13px;">Appears in Tome 2</label>
+      </div>
     </div>
     <div class="fieldRow">
       <div class="field" style="display:flex;align-items:center;gap:6px;">
-        <input type="checkbox" id="fAlive1858" style="width:auto;">
-        <label style="margin:0;text-transform:none;font-size:13px;">Alive in 1858</label>
+        <input type="checkbox" id="fMainTome1" style="width:auto;">
+        <label style="margin:0;text-transform:none;font-size:13px;">Main character — Tome 1</label>
       </div>
       <div class="field" style="display:flex;align-items:center;gap:6px;">
-        <input type="checkbox" id="fAlive1875" style="width:auto;">
-        <label style="margin:0;text-transform:none;font-size:13px;">Alive in 1875</label>
+        <input type="checkbox" id="fMainTome2" style="width:auto;">
+        <label style="margin:0;text-transform:none;font-size:13px;">Main character — Tome 2</label>
       </div>
     </div>
+
+    <div style="font-weight:600;font-size:13px;color:#6B5D46;margin:16px 0 8px;border-top:1px solid #DCD5C0;padding-top:14px;">Tome 1 — 1858</div>
+    <div class="field" style="display:flex;align-items:center;gap:6px;">
+      <input type="checkbox" id="fAlive1858" style="width:auto;">
+      <label style="margin:0;text-transform:none;font-size:13px;">Alive in 1858</label>
+    </div>
+    <div class="fieldRow">
+      <div class="field">
+        <label>Age in 1858</label>
+        <input type="number" id="fAge1858" placeholder="optional">
+      </div>
+      <div class="field">
+        <label>Street (1858)</label>
+        <input type="text" id="fStreet1858" placeholder="e.g. Rue du Port">
+      </div>
+    </div>
+    <div class="field">
+      <label>Place of residence (1858)</label>
+      <input type="text" id="fResidence1858" list="residenceOptions" placeholder="e.g. Lyon">
+    </div>
+
+    <div style="font-weight:600;font-size:13px;color:#6B5D46;margin:16px 0 8px;border-top:1px solid #DCD5C0;padding-top:14px;">Tome 2 — 1875</div>
+    <div class="field" style="display:flex;align-items:center;gap:6px;">
+      <input type="checkbox" id="fAlive1875" style="width:auto;">
+      <label style="margin:0;text-transform:none;font-size:13px;">Alive in 1875</label>
+    </div>
+    <div class="fieldRow">
+      <div class="field">
+        <label>Age in 1875</label>
+        <input type="number" id="fAge1875" placeholder="optional">
+      </div>
+      <div class="field">
+        <label>Street (1875)</label>
+        <input type="text" id="fStreet1875" placeholder="e.g. Rue du Port">
+      </div>
+    </div>
+    <div class="field">
+      <label>Place of residence (1875)</label>
+      <input type="text" id="fResidence1875" list="residenceOptions" placeholder="e.g. Lyon">
+    </div>
+
     <div class="modalActions">
       <div class="left">
         <button class="danger" id="btnDeleteChar" style="display:none;">Delete</button>
@@ -357,8 +428,8 @@
         </select>
       </div>
       <div class="field" id="marriageYearField" style="display:none;">
-        <label>Year of marriage</label>
-        <input type="number" id="relMarriageYear" placeholder="optional">
+        <label>Date of marriage</label>
+        <input type="date" id="relMarriageYear">
       </div>
       <div class="field">
         <label>Person B</label>
@@ -577,6 +648,13 @@
     return parts.length > 1 ? parts[parts.length-1] : parts[0];
   }
 
+  function displayName(c){
+    const given = c.name || '';
+    const family = c.familyName || '';
+    const core = family ? `${given} ${family}`.trim() : given;
+    return c.nickname ? `${given} "${c.nickname}"${family ? ' '+family : ''}`.trim() : core;
+  }
+
   function hashStr(s){
     let h = 0;
     for(let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) | 0; }
@@ -584,8 +662,8 @@
   }
 
   const SURNAME_PALETTE = ['#B5484A','#6C8CAE','#6E8A6F','#C97B3D','#9575B5','#B08A3E','#4E8C82','#A15C7E'];
-  function surnameColor(name){
-    const s = surnameOf(name);
+  function surnameColor(c){
+    const s = c.familyName || surnameOf(c.name);
     return SURNAME_PALETTE[hashStr(s) % SURNAME_PALETTE.length];
   }
 
@@ -598,6 +676,22 @@
       if(r.b===id) out.add(r.a);
     });
     return out;
+  }
+
+  const FAMILY_TYPES = new Set(['parent','spouse','sibling']);
+  function familyClosure(startId){
+    const visited = new Set([startId]);
+    const queue = [startId];
+    while(queue.length){
+      const id = queue.pop();
+      state.relationships.forEach(r=>{
+        if(!FAMILY_TYPES.has(r.type)) return;
+        if(r.a===id && !visited.has(r.b)){ visited.add(r.b); queue.push(r.b); }
+        if(r.b===id && !visited.has(r.a)){ visited.add(r.a); queue.push(r.a); }
+      });
+    }
+    visited.delete(startId);
+    return visited;
   }
 
   // ---------- Layout (hierarchical, multi-pass) ----------
@@ -619,12 +713,13 @@
 
     // birth-year bucket: converts birth year into a row number so older
     // characters are pulled toward the top even without a recorded parent link
-    const birthYears = chars.filter(c=> typeof c.birth === 'number').map(c=>c.birth);
+    const birthYears = chars.map(c=>yearOf(c.birthDate)).filter(y=>y!==null);
     const minBirth = birthYears.length ? Math.min(...birthYears) : null;
     const YEARS_PER_ROW = 25; // roughly one generation
     function birthBucket(c){
-      if(typeof c.birth !== 'number' || minBirth===null) return 0;
-      return Math.floor((c.birth - minBirth) / YEARS_PER_ROW);
+      const y = yearOf(c.birthDate);
+      if(y===null || minBirth===null) return 0;
+      return Math.floor((y - minBirth) / YEARS_PER_ROW);
     }
 
     // depth = the deeper of (a) longest chain of parent->child from a root,
@@ -785,6 +880,12 @@
     edgeLayer.innerHTML = '';
     cardLayer.innerHTML = '';
 
+    const highlightSet = highlightedId ? familyClosure(highlightedId) : null;
+    function isDimmed(...ids){
+      if(!highlightedId) return false;
+      return !ids.some(id => id===highlightedId || highlightSet.has(id));
+    }
+
     // edges
     const spouseKeys = new Set();
     state.relationships.forEach(r=>{
@@ -840,9 +941,9 @@
           const x1 = (p1.x + p2.x)/2 + CARD_W/2;
           const y1 = Math.max(p1.y, p2.y) + CARD_H;
           const x2 = child.x + CARD_W/2, y2 = child.y;
-          const dimEdge = highlightedId && ![edges[0].a, edges[1].a, childId].includes(highlightedId);
+          const dimEdge = isDimmed(edges[0].a, edges[1].a, childId);
           drawFamilyLine(x1, y1, x2, y2, dimEdge,
-            `${p1.name} & ${p2.name} are parents of ${child.name}`,
+            `${displayName(p1)} & ${displayName(p2)} are parents of ${displayName(child)}`,
             ()=> openRelForEdit(edges[0].id));
           return;
         }
@@ -854,9 +955,9 @@
         if(!a) return;
         const x1 = a.x + CARD_W/2, y1 = a.y + CARD_H;
         const x2 = child.x + CARD_W/2, y2 = child.y;
-        const dimEdge = highlightedId && rel.a !== highlightedId && rel.b !== highlightedId;
+        const dimEdge = isDimmed(rel.a, rel.b);
         drawFamilyLine(x1, y1, x2, y2, dimEdge,
-          `${a.name} is a parent of ${child.name}`,
+          `${displayName(a)} is a parent of ${displayName(child)}`,
           ()=> openRelForEdit(rel.id));
       });
     });
@@ -866,9 +967,62 @@
       if(!a || !b) return;
       if(rel.type === 'parent') return; // handled above
       const meta = REL_META[rel.type] || REL_META.other;
-      const dimEdge = highlightedId && rel.a !== highlightedId && rel.b !== highlightedId;
+      const dimEdge = isDimmed(rel.a, rel.b);
 
-      {
+      const sameRow = Math.abs(a.y - b.y) < 1;
+
+      if(rel.type === 'spouse' && sameRow){
+        const left = a.x <= b.x ? a : b, right = a.x <= b.x ? b : a;
+        const y = left.y + CARD_H/2;
+        const x1 = left.x + CARD_W, x2 = right.x;
+        const midX = (x1+x2)/2;
+
+        const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+        g.setAttribute('class', 'edge-thread' + (dimEdge ? ' edge-dim' : ''));
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d', `M ${x1} ${y} L ${x2} ${y}`);
+        path.setAttribute('stroke', meta.color);
+        path.setAttribute('stroke-width', '2.2');
+        g.appendChild(path);
+
+        const hit = document.createElementNS('http://www.w3.org/2000/svg','path');
+        hit.setAttribute('class','edge-hit');
+        hit.setAttribute('d', `M ${x1} ${y} L ${x2} ${y}`);
+        hit.addEventListener('click', ()=> openRelForEdit(rel.id));
+        g.appendChild(hit);
+
+        const badge = document.createElementNS('http://www.w3.org/2000/svg','circle');
+        badge.setAttribute('cx', midX); badge.setAttribute('cy', y); badge.setAttribute('r', 8);
+        badge.setAttribute('fill', meta.color);
+        badge.setAttribute('stroke', '#FFFFFF'); badge.setAttribute('stroke-width', '1.5');
+        g.appendChild(badge);
+
+        const glyph = document.createElementNS('http://www.w3.org/2000/svg','text');
+        glyph.setAttribute('x', midX); glyph.setAttribute('y', y+3.5);
+        glyph.setAttribute('text-anchor','middle');
+        glyph.setAttribute('fill', '#FFFFFF');
+        glyph.setAttribute('font-size', 11);
+        glyph.textContent = '♥';
+        g.appendChild(glyph);
+
+        if(rel.marriageYear){
+          const label = document.createElementNS('http://www.w3.org/2000/svg','text');
+          label.setAttribute('x', midX); label.setAttribute('y', y - 13);
+          label.setAttribute('text-anchor','middle');
+          label.setAttribute('fill', meta.color);
+          label.setAttribute('font-size', 10);
+          label.setAttribute('font-family', "'Inter',sans-serif");
+          label.textContent = `m. ${formatDate(rel.marriageYear)}`;
+          g.appendChild(label);
+        }
+
+        const titleEl = document.createElementNS('http://www.w3.org/2000/svg','title');
+        titleEl.textContent = `${displayName(a)} & ${displayName(b)} are spouses` + (rel.marriageYear ? ` (m. ${formatDate(rel.marriageYear)})` : '');
+        g.appendChild(titleEl);
+
+        edgeLayer.appendChild(g);
+      } else {
         const ca = cardCenter(a), cb = cardCenter(b);
         const mx = (ca.x+cb.x)/2, my = (ca.y+cb.y)/2;
         const dx = cb.x-ca.x, dy = cb.y-ca.y;
@@ -892,7 +1046,7 @@
         g.appendChild(hit);
 
         let label = rel.type==='other' && rel.customLabel ? rel.customLabel : meta.label;
-        if(rel.type==='spouse' && rel.marriageYear) label += ` (m. ${rel.marriageYear})`;
+        if(rel.type==='spouse' && rel.marriageYear) label += ` (m. ${formatDate(rel.marriageYear)})`;
         const tw = Math.max(30, label.length*5.6+10);
         const tagBg = document.createElementNS('http://www.w3.org/2000/svg','rect');
         tagBg.setAttribute('class','tagbg');
@@ -932,36 +1086,70 @@
           else if(!overlap) opacityClass = 'faded';
         }
       } else if(highlightedId){
-        const connected = relatedChars(highlightedId);
+        const connected = familyClosure(highlightedId);
         if(c.id !== highlightedId && !connected.has(c.id)) opacityClass = 'faded';
       }
       if(opacityClass) g.classList.add(opacityClass);
       if(highlightedId === c.id) g.classList.add('highlighted');
 
-      const stripe = document.createElementNS('http://www.w3.org/2000/svg','rect');
-      stripe.setAttribute('class','stripe');
-      stripe.setAttribute('x',0); stripe.setAttribute('y',0);
-      stripe.setAttribute('width', CARD_W); stripe.setAttribute('height', 5);
-      stripe.setAttribute('rx', 2);
-      stripe.setAttribute('fill', surnameColor(c.name));
-      g.appendChild(stripe);
-
+      const TOME1_COLOR = '#C9A96B', TOME2_COLOR = '#8E72B5';
       const body = document.createElementNS('http://www.w3.org/2000/svg','rect');
       body.setAttribute('class','body');
       body.setAttribute('x',0); body.setAttribute('y',0);
       body.setAttribute('width', CARD_W); body.setAttribute('height', CARD_H);
-      body.setAttribute('rx', 7);
+      body.setAttribute('rx', 9);
+      if(c.mainTome1 || c.mainTome2){
+        body.setAttribute('stroke', c.mainTome1 ? TOME1_COLOR : TOME2_COLOR);
+        body.setAttribute('stroke-width', '2.4');
+      }
       g.appendChild(body);
+
+      const avatarCx = 21, avatarCy = CARD_H/2, avatarR = 14;
+      const avatar = document.createElementNS('http://www.w3.org/2000/svg','circle');
+      avatar.setAttribute('class','avatar');
+      avatar.setAttribute('cx', avatarCx); avatar.setAttribute('cy', avatarCy); avatar.setAttribute('r', avatarR);
+      avatar.setAttribute('fill', surnameColor(c));
+      g.appendChild(avatar);
+
+      const initials = document.createElementNS('http://www.w3.org/2000/svg','text');
+      initials.setAttribute('class','avatarInitials');
+      initials.setAttribute('x', avatarCx); initials.setAttribute('y', avatarCy + 4);
+      initials.setAttribute('font-size', 11.5);
+      initials.textContent = getInitials(c);
+      g.appendChild(initials);
 
       const nameText = document.createElementNS('http://www.w3.org/2000/svg','text');
       nameText.setAttribute('class','name');
-      nameText.setAttribute('x', 10); nameText.setAttribute('y', CARD_H/2 + 5);
-      nameText.setAttribute('font-size', 14);
-      nameText.textContent = truncate(c.name, 27);
+      nameText.setAttribute('x', 44); nameText.setAttribute('y', CARD_H/2 + 5);
+      nameText.setAttribute('font-size', 13.5);
+      if(c.mainTome1 || c.mainTome2) nameText.setAttribute('font-weight', '800');
+      nameText.textContent = truncate(displayName(c), 23);
       g.appendChild(nameText);
 
+      const tomeBadges = [];
+      if(c.mainTome1) tomeBadges.push({label:'T1', color: TOME1_COLOR});
+      if(c.mainTome2) tomeBadges.push({label:'T2', color: TOME2_COLOR});
+      tomeBadges.forEach((tb, i)=>{
+        const bx = CARD_W - 26 - i*28, by = 8;
+        const chip = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        chip.setAttribute('x', bx); chip.setAttribute('y', by);
+        chip.setAttribute('width', 22); chip.setAttribute('height', 14);
+        chip.setAttribute('rx', 4);
+        chip.setAttribute('fill', tb.color);
+        g.appendChild(chip);
+        const chipText = document.createElementNS('http://www.w3.org/2000/svg','text');
+        chipText.setAttribute('x', bx + 11); chipText.setAttribute('y', by + 10.5);
+        chipText.setAttribute('text-anchor', 'middle');
+        chipText.setAttribute('font-family', "'Inter',sans-serif");
+        chipText.setAttribute('font-weight', '700');
+        chipText.setAttribute('font-size', 8.5);
+        chipText.setAttribute('fill', '#FFFFFF');
+        chipText.textContent = tb.label;
+        g.appendChild(chipText);
+      });
+
       const titleEl = document.createElementNS('http://www.w3.org/2000/svg','title');
-      titleEl.textContent = highlightedId === c.id ? 'Click again to edit' : 'Click to highlight connections · Double-click to edit';
+      titleEl.textContent = highlightedId === c.id ? 'Click again to edit' : 'Click to highlight this family · Double-click to edit';
       g.appendChild(titleEl);
 
       g.addEventListener('click', (e)=>{
@@ -988,11 +1176,30 @@
 
   function truncate(s, n){ return s.length>n ? s.slice(0,n-1)+'…' : s; }
 
+  function getInitials(c){
+    if(c.familyName){
+      const g = c.name.trim();
+      return ((g[0]||'') + (c.familyName.trim()[0]||'')).toUpperCase() || '?';
+    }
+    const parts = c.name.trim().split(/\s+/).filter(Boolean);
+    if(parts.length === 0) return '?';
+    if(parts.length === 1) return parts[0].slice(0,2).toUpperCase();
+    return (parts[0][0] + parts[parts.length-1][0]).toUpperCase();
+  }
+
+  function yearOf(dateStr){
+    if(!dateStr) return null;
+    const y = parseInt(String(dateStr).slice(0,4), 10);
+    return isNaN(y) ? null : y;
+  }
+
   function lifespansOverlap(a, b){
-    if(!a.birth && !a.death) return 'unknown';
-    if(!b.birth && !b.death) return 'unknown';
-    const aStart = a.birth ?? -Infinity, aEnd = a.death ?? Infinity;
-    const bStart = b.birth ?? -Infinity, bEnd = b.death ?? Infinity;
+    const aBirth = yearOf(a.birthDate), aDeath = yearOf(a.deathDate);
+    const bBirth = yearOf(b.birthDate), bDeath = yearOf(b.deathDate);
+    if(aBirth===null && aDeath===null) return 'unknown';
+    if(bBirth===null && bDeath===null) return 'unknown';
+    const aStart = aBirth ?? -Infinity, aEnd = aDeath ?? Infinity;
+    const bStart = bBirth ?? -Infinity, bEnd = bDeath ?? Infinity;
     if(aStart===-Infinity && aEnd===Infinity) return 'unknown';
     if(bStart===-Infinity && bEnd===Infinity) return 'unknown';
     return aStart <= bEnd && bStart <= aEnd;
@@ -1143,6 +1350,13 @@
   }
 
   // ---------- Cast list ----------
+  function formatDate(dateStr){
+    if(!dateStr) return '';
+    const d = new Date(dateStr + 'T00:00:00');
+    if(isNaN(d.getTime())) return dateStr;
+    return d.toLocaleDateString(undefined, {day:'numeric', month:'short', year:'numeric'});
+  }
+
   function renderCastList(){
     const list = document.getElementById('castList');
     if(state.characters.length===0){
@@ -1151,23 +1365,43 @@
     }
     list.innerHTML = state.characters
       .slice()
-      .sort((a,b)=> a.name.localeCompare(b.name))
+      .sort((a,b)=> (a.familyName||surnameOf(a.name)).localeCompare(b.familyName||surnameOf(b.name)) || a.name.localeCompare(b.name))
       .map(c=>{
-        const years = (c.birth||c.death) ? `${c.birth||'?'}–${c.death||'…'}` : '';
-        const marriagePart = c.marriageYear ? `m. ${c.marriageYear}` : '';
-        const aliveTags = [c.alive1858?'alive 1858':null, c.alive1875?'alive 1875':null].filter(Boolean).join(', ');
+        const bd = formatDate(c.birthDate), dd = formatDate(c.deathDate);
+        const dates = (bd||dd) ? `${bd||'?'} – ${dd||'…'}` : '';
+        const marriagePart = c.marriageDate ? `m. ${formatDate(c.marriageDate)}` : '';
+        const tome1Bits = [
+          c.alive1858 ? 'alive' : null,
+          (c.age1858!==null && c.age1858!==undefined && c.age1858!=='') ? `age ${c.age1858}` : null,
+          c.residence1858 ? c.residence1858 : null,
+          c.street1858 ? c.street1858 : null
+        ].filter(Boolean).join(', ');
+        const tome2Bits = [
+          c.alive1875 ? 'alive' : null,
+          (c.age1875!==null && c.age1875!==undefined && c.age1875!=='') ? `age ${c.age1875}` : null,
+          c.residence1875 ? c.residence1875 : null,
+          c.street1875 ? c.street1875 : null
+        ].filter(Boolean).join(', ');
+        const tomeTags = [
+          c.tome1 ? `T1${c.mainTome1?' ★':''}${tome1Bits ? ' ('+tome1Bits+')' : ''}` : null,
+          c.tome2 ? `T2${c.mainTome2?' ★':''}${tome2Bits ? ' ('+tome2Bits+')' : ''}` : null
+        ].filter(Boolean).join(' · ');
         const residenceList = Array.isArray(c.residences) ? c.residences.filter(Boolean) : (c.residence ? [c.residence] : []);
         const residencesStr = residenceList.join(', ');
         const placePart = c.birthplace && residencesStr ? `b. ${c.birthplace} → ${residencesStr}` : (c.birthplace ? `b. ${c.birthplace}` : (residencesStr ? `lived in: ${residencesStr}` : ''));
-        const extras = [years, placePart, marriagePart, aliveTags, c.physical, c.personality].filter(Boolean).join(' · ');
+        const extras = [dates, placePart, marriagePart, c.physical, c.personality].filter(Boolean).join(' · ');
         const roleLine = [c.role, c.occupation].filter(Boolean).join(' · ');
         const factsLine = c.facts ? escapeHtml(c.facts.length>70 ? c.facts.slice(0,69)+'…' : c.facts) : '';
+        const notesLine = c.notes ? escapeHtml(c.notes.length>70 ? c.notes.slice(0,69)+'…' : c.notes) : '';
+        const isMain = c.mainTome1 || c.mainTome2;
         return `<div class="listItem" data-charid="${c.id}">
           <div class="info">
-            <span class="dot" style="background:${surnameColor(c.name)};display:inline-block;margin-right:2px;"></span>
-            <span class="t1">${escapeHtml(c.name)}</span>
+            <span class="dot" style="background:${surnameColor(c)};display:inline-block;margin-right:2px;"></span>
+            <span class="t1" style="${isMain?'font-weight:700;':''}">${escapeHtml(displayName(c))}</span>
+            ${tomeTags ? `<div class="t2" style="font-weight:600;color:var(--ink);">${escapeHtml(tomeTags)}</div>` : ''}
             <div class="t2">${escapeHtml(roleLine)}${extras?' · '+extras:''}</div>
             ${factsLine ? `<div class="t2" style="font-style:italic;opacity:0.8;">${factsLine}</div>` : ''}
+            ${notesLine ? `<div class="t2" style="opacity:0.75;">📝 ${notesLine}</div>` : ''}
           </div>
           <button class="del" data-delchar="${c.id}" title="Delete">✕</button>
         </div>`;
@@ -1200,10 +1434,10 @@
       if(!a||!b) return '';
       const meta = REL_META[r.type] || REL_META.other;
       let verb = r.type==='other' ? (r.customLabel || 'connected to') : meta.label;
-      if(r.type==='spouse' && r.marriageYear) verb += ` (m. ${r.marriageYear})`;
+      if(r.type==='spouse' && r.marriageYear) verb += ` (m. ${formatDate(r.marriageYear)})`;
       return `<div class="listItem">
         <div class="info">
-          <div class="t1"><span class="dot" style="background:${meta.color};display:inline-block;margin-right:6px;"></span>${escapeHtml(a.name)} — ${escapeHtml(verb)} — ${escapeHtml(b.name)}</div>
+          <div class="t1"><span class="dot" style="background:${meta.color};display:inline-block;margin-right:6px;"></span>${escapeHtml(displayName(a))} — ${escapeHtml(verb)} — ${escapeHtml(displayName(b))}</div>
         </div>
         <button class="del" data-rel="${r.id}" title="Remove relationship">✕</button>
       </div>`;
@@ -1230,7 +1464,10 @@
 
   function refreshResidenceOptions(){
     const places = Array.from(new Set(
-      state.characters.flatMap(c=> Array.isArray(c.residences) ? c.residences : (c.residence ? [c.residence] : [])).filter(Boolean)
+      state.characters.flatMap(c=> [
+        ...(Array.isArray(c.residences) ? c.residences : (c.residence ? [c.residence] : [])),
+        c.residence1858, c.residence1875
+      ]).filter(Boolean)
     )).sort((a,b)=>a.localeCompare(b));
     document.getElementById('residenceOptions').innerHTML =
       places.map(p=>`<option value="${escapeHtml(p)}"></option>`).join('');
@@ -1266,18 +1503,31 @@
     editingCharId = null;
     document.getElementById('charModalTitle').textContent = 'New character';
     document.getElementById('fName').value = '';
+    document.getElementById('fFamilyName').value = '';
+    document.getElementById('fNickname').value = '';
     document.getElementById('fRole').value = '';
     document.getElementById('fOccupation').value = '';
     document.getElementById('fPhysical').value = '';
     document.getElementById('fPersonality').value = '';
     document.getElementById('fFacts').value = '';
-    document.getElementById('fBirth').value = '';
-    document.getElementById('fDeath').value = '';
+    document.getElementById('fNotes').value = '';
+    document.getElementById('fBirthDate').value = '';
+    document.getElementById('fDeathDate').value = '';
     document.getElementById('fBirthplace').value = '';
     setResidenceRows([]);
-    document.getElementById('fMarriageYear').value = '';
+    document.getElementById('fMarriageDate').value = '';
+    document.getElementById('fTome1').checked = false;
+    document.getElementById('fTome2').checked = false;
+    document.getElementById('fMainTome1').checked = false;
+    document.getElementById('fMainTome2').checked = false;
     document.getElementById('fAlive1858').checked = false;
+    document.getElementById('fAge1858').value = '';
+    document.getElementById('fResidence1858').value = '';
+    document.getElementById('fStreet1858').value = '';
     document.getElementById('fAlive1875').checked = false;
+    document.getElementById('fAge1875').value = '';
+    document.getElementById('fResidence1875').value = '';
+    document.getElementById('fStreet1875').value = '';
     document.getElementById('btnDeleteChar').style.display = 'none';
     refreshBirthplaceOptions();
     refreshResidenceOptions();
@@ -1290,18 +1540,31 @@
     editingCharId = id;
     document.getElementById('charModalTitle').textContent = 'Edit character';
     document.getElementById('fName').value = c.name;
+    document.getElementById('fFamilyName').value = c.familyName || '';
+    document.getElementById('fNickname').value = c.nickname || '';
     document.getElementById('fRole').value = c.role||'';
     document.getElementById('fOccupation').value = c.occupation||'';
     document.getElementById('fPhysical').value = c.physical||'';
     document.getElementById('fPersonality').value = c.personality||'';
     document.getElementById('fFacts').value = c.facts||'';
-    document.getElementById('fBirth').value = c.birth ?? '';
-    document.getElementById('fDeath').value = c.death ?? '';
+    document.getElementById('fNotes').value = c.notes||'';
+    document.getElementById('fBirthDate').value = c.birthDate || '';
+    document.getElementById('fDeathDate').value = c.deathDate || '';
     document.getElementById('fBirthplace').value = c.birthplace || '';
     setResidenceRows(Array.isArray(c.residences) ? c.residences : (c.residence ? [c.residence] : []));
-    document.getElementById('fMarriageYear').value = c.marriageYear ?? '';
+    document.getElementById('fMarriageDate').value = c.marriageDate || '';
+    document.getElementById('fTome1').checked = !!c.tome1;
+    document.getElementById('fTome2').checked = !!c.tome2;
+    document.getElementById('fMainTome1').checked = !!c.mainTome1;
+    document.getElementById('fMainTome2').checked = !!c.mainTome2;
     document.getElementById('fAlive1858').checked = !!c.alive1858;
+    document.getElementById('fAge1858').value = c.age1858 ?? '';
+    document.getElementById('fResidence1858').value = c.residence1858 || '';
+    document.getElementById('fStreet1858').value = c.street1858 || '';
     document.getElementById('fAlive1875').checked = !!c.alive1875;
+    document.getElementById('fAge1875').value = c.age1875 ?? '';
+    document.getElementById('fResidence1875').value = c.residence1875 || '';
+    document.getElementById('fStreet1875').value = c.street1875 || '';
     document.getElementById('btnDeleteChar').style.display = 'inline-block';
     refreshBirthplaceOptions();
     refreshResidenceOptions();
@@ -1315,31 +1578,49 @@
   document.getElementById('btnCharSave').addEventListener('click', ()=>{
     const name = document.getElementById('fName').value.trim();
     if(!name){ document.getElementById('fName').focus(); return; }
+    const familyName = document.getElementById('fFamilyName').value.trim();
+    const nickname = document.getElementById('fNickname').value.trim();
     const role = document.getElementById('fRole').value.trim();
     const occupation = document.getElementById('fOccupation').value.trim();
     const physical = document.getElementById('fPhysical').value.trim();
     const personality = document.getElementById('fPersonality').value.trim();
     const facts = document.getElementById('fFacts').value.trim();
-    const birthVal = document.getElementById('fBirth').value;
-    const deathVal = document.getElementById('fDeath').value;
-    const birth = birthVal===''? null : parseInt(birthVal,10);
-    const death = deathVal===''? null : parseInt(deathVal,10);
+    const notes = document.getElementById('fNotes').value.trim();
+    const birthDate = document.getElementById('fBirthDate').value || null;
+    const deathDate = document.getElementById('fDeathDate').value || null;
     const birthplace = document.getElementById('fBirthplace').value.trim();
     const residences = getResidenceValues();
-    const marriageYearVal = document.getElementById('fMarriageYear').value;
-    const marriageYear = marriageYearVal===''? null : parseInt(marriageYearVal,10);
+    const marriageDate = document.getElementById('fMarriageDate').value || null;
+    const tome1 = document.getElementById('fTome1').checked;
+    const tome2 = document.getElementById('fTome2').checked;
+    const mainTome1 = document.getElementById('fMainTome1').checked;
+    const mainTome2 = document.getElementById('fMainTome2').checked;
     const alive1858 = document.getElementById('fAlive1858').checked;
+    const age1858Val = document.getElementById('fAge1858').value;
+    const age1858 = age1858Val===''? null : parseInt(age1858Val,10);
+    const residence1858 = document.getElementById('fResidence1858').value.trim();
+    const street1858 = document.getElementById('fStreet1858').value.trim();
     const alive1875 = document.getElementById('fAlive1875').checked;
+    const age1875Val = document.getElementById('fAge1875').value;
+    const age1875 = age1875Val===''? null : parseInt(age1875Val,10);
+    const residence1875 = document.getElementById('fResidence1875').value.trim();
+    const street1875 = document.getElementById('fStreet1875').value.trim();
+
+    const fields = {
+      name, familyName, nickname, role, occupation, physical, personality, facts, notes,
+      birthDate, deathDate, birthplace, residences, marriageDate,
+      tome1, tome2, mainTome1, mainTome2,
+      alive1858, age1858, residence1858, street1858,
+      alive1875, age1875, residence1875, street1875
+    };
 
     if(editingCharId){
       const c = getChar(editingCharId);
-      c.name = name; c.role = role; c.occupation = occupation; c.physical = physical; c.personality = personality; c.facts = facts;
-      c.birth = birth; c.death = death; c.birthplace = birthplace;
-      c.residences = residences; delete c.residence;
-      c.marriageYear = marriageYear; c.alive1858 = alive1858; c.alive1875 = alive1875;
+      Object.assign(c, fields);
+      delete c.residence; delete c.birth; delete c.death; delete c.marriageYear;
     } else {
       state.characters.push({
-        id: uid(), name, role, occupation, physical, personality, facts, birth, death, birthplace, residences, marriageYear, alive1858, alive1875,
+        id: uid(), ...fields,
         x: 80 + (state.characters.length%5)*40,
         y: 80 + Math.floor(state.characters.length/5)*40
       });
@@ -1369,8 +1650,8 @@
 
   function populateRelSelects(){
     const opts = state.characters
-      .slice().sort((a,b)=>a.name.localeCompare(b.name))
-      .map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+      .slice().sort((a,b)=> (a.familyName||surnameOf(a.name)).localeCompare(b.familyName||surnameOf(b.name)) || a.name.localeCompare(b.name))
+      .map(c=>`<option value="${c.id}">${escapeHtml(displayName(c))}</option>`).join('');
     document.getElementById('relA').innerHTML = opts;
     document.getElementById('relB').innerHTML = opts;
   }
@@ -1412,7 +1693,7 @@
     const b = document.getElementById('relB').value;
     const type = document.getElementById('relType').value;
     const marriageYearVal = document.getElementById('relMarriageYear').value;
-    const marriageYear = (type==='spouse' && marriageYearVal!=='') ? parseInt(marriageYearVal,10) : null;
+    const marriageYear = (type==='spouse' && marriageYearVal!=='') ? marriageYearVal : null;
     if(!a || !b || a===b){ alert('Choose two different people.'); return; }
     state.relationships.push({ id: uid(), a, b, type, marriageYear });
     closeRelModal();
@@ -1469,8 +1750,8 @@
     contemporariesMode = !contemporariesMode;
     activeContemporary = null;
     highlightedId = null;
-    e.target.closest('button').style.background = contemporariesMode ? 'var(--parchment)' : '';
-    e.target.closest('button').style.color = contemporariesMode ? 'var(--text-dark)' : '';
+    e.target.closest('button').style.background = contemporariesMode ? 'var(--ink)' : '';
+    e.target.closest('button').style.color = contemporariesMode ? '#FFFFFF' : '';
     renderCanvas();
   });
 
