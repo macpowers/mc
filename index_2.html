@@ -1,0 +1,1173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>Family Tree</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root{
+    --bg: #221D17;
+    --bg-panel: #2A241C;
+    --bg-panel-2: #322B21;
+    --ink: #3A2F22;
+    --parchment: #F1E4C4;
+    --parchment-2: #E8D7AC;
+    --text-light: #EFE6D2;
+    --text-muted: #B7AB90;
+    --text-dark: #2B2620;
+    --gold: #D8C9A0;
+    --c-parent: #D8C9A0;
+    --c-spouse: #B5484A;
+    --c-sibling: #6E8A6F;
+    --c-friend: #6C8CAE;
+    --c-rival: #C97B3D;
+    --c-mentor: #9575B5;
+    --c-other: #8A8378;
+    --border: #443B2E;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;height:100%;background:var(--bg);font-family:'Inter',sans-serif;color:var(--text-light);overflow:hidden;}
+  #app{display:flex;flex-direction:column;height:100vh;width:100vw;}
+
+  header{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:14px 20px 10px 22px;border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, var(--bg-panel), var(--bg));
+    flex-shrink:0;gap:12px;flex-wrap:wrap;
+  }
+  header h1{
+    font-family:'Fraunces',serif;font-weight:700;font-size:22px;
+    margin:0;letter-spacing:0.3px;color:var(--parchment);
+  }
+  header .sub{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;letter-spacing:0.5px;margin-top:2px;}
+  header .titles{display:flex;flex-direction:column;}
+  .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  button{
+    font-family:'Inter',sans-serif;font-size:13px;font-weight:500;
+    background:var(--bg-panel-2);color:var(--text-light);border:1px solid var(--border);
+    border-radius:6px;padding:7px 12px;cursor:pointer;transition:background .15s, border-color .15s;
+  }
+  button:hover{background:#3D362A;border-color:#5A4E3B;}
+  button.primary{background:var(--parchment);color:var(--text-dark);border-color:var(--parchment);}
+  button.primary:hover{background:#E8D7AC;}
+  button:focus-visible, [tabindex]:focus-visible, input:focus-visible, select:focus-visible{outline:2px solid var(--c-friend);outline-offset:2px;}
+  #saveStatus{font-size:11px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;min-width:78px;}
+
+  #main{flex:1;display:flex;min-height:0;}
+  #canvasPanel{flex:1;position:relative;overflow:hidden;background:
+    radial-gradient(ellipse at top left, #2C2619 0%, #201B14 60%);
+  }
+  #canvasPanel svg{width:100%;height:100%;display:block;cursor:grab;}
+  #canvasPanel svg.panning{cursor:grabbing;}
+
+  .card{cursor:pointer;}
+  .card rect.body{fill:var(--parchment);stroke:var(--ink);stroke-width:1.3;}
+  .card rect.stripe{stroke:none;}
+  .card text.name{font-family:'Fraunces',serif;font-weight:600;fill:var(--text-dark);}
+  .card text.role{font-family:'Inter',sans-serif;fill:#6B5D46;}
+  .card text.years{font-family:'JetBrains Mono',monospace;fill:#8A7A5C;}
+  .card:hover rect.body{stroke-width:2;}
+  .card.dragging{cursor:grabbing;}
+  .card.faded{opacity:0.22;}
+  .card.faded-partial{opacity:0.55;}
+
+  .edge-family path{fill:none;stroke:var(--c-parent);stroke-width:2;}
+  .edge-thread path{fill:none;stroke-width:2;fill:none;}
+  .edge-thread .tagbg{fill:var(--bg);opacity:0.92;}
+  .edge-thread text{font-family:'Inter',sans-serif;font-size:10px;font-weight:500;}
+  .edge-hit{fill:none;stroke:transparent;stroke-width:14;cursor:pointer;}
+
+  #sidePanel{
+    width:340px;flex-shrink:0;background:var(--bg-panel);border-left:1px solid var(--border);
+    display:flex;flex-direction:column;min-height:0;
+  }
+  .panelHeader{padding:14px 16px 10px;border-bottom:1px solid var(--border);}
+  .panelHeader h2{margin:0 0 4px;font-family:'Fraunces',serif;font-size:15px;color:var(--parchment);}
+  .panelHeader p{margin:0;font-size:11.5px;color:var(--text-muted);}
+  #castList, #relList{flex:1;overflow-y:auto;padding:8px 10px;}
+  .listItem{
+    display:flex;align-items:center;justify-content:space-between;gap:8px;
+    padding:8px 10px;border-radius:6px;margin-bottom:4px;background:var(--bg-panel-2);
+    border:1px solid transparent;
+  }
+  .listItem:hover{border-color:var(--border);}
+  .listItem .info{min-width:0;flex:1;cursor:pointer;}
+  .listItem .t1{font-size:13px;font-weight:500;color:var(--text-light);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .listItem .t2{font-size:11px;color:var(--text-muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .listItem .dot{width:9px;height:9px;border-radius:50%;flex-shrink:0;}
+  .listItem button.del{background:none;border:none;color:#8A7A5C;font-size:15px;padding:2px 6px;border-radius:4px;}
+  .listItem button.del:hover{background:#4A2020;color:#E0A0A0;}
+  .panelDivider{border-top:1px solid var(--border);}
+  .panelFoot{padding:10px 14px;border-top:1px solid var(--border);display:flex;gap:8px;flex-wrap:wrap;}
+
+  #legend{
+    position:absolute;bottom:14px;left:14px;background:rgba(34,29,23,0.92);
+    border:1px solid var(--border);border-radius:8px;padding:10px 12px;font-size:11.5px;
+    display:none;flex-direction:column;gap:5px;backdrop-filter:blur(2px);
+  }
+  #legend.show{display:flex;}
+  #legend .row{display:flex;align-items:center;gap:7px;color:var(--text-muted);}
+  #legend .swatch{width:16px;height:3px;border-radius:2px;}
+
+  #emptyState{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    flex-direction:column;gap:14px;pointer-events:none;text-align:center;padding:20px;
+  }
+  #emptyState.hide{display:none;}
+  #emptyState h3{font-family:'Fraunces',serif;font-size:20px;color:var(--parchment);margin:0;font-weight:600;}
+  #emptyState p{color:var(--text-muted);font-size:13px;max-width:280px;margin:0;}
+  #emptyState button{pointer-events:auto;}
+
+  /* Modal */
+  .modalOverlay{
+    position:fixed;inset:0;background:rgba(20,16,11,0.65);display:none;
+    align-items:center;justify-content:center;z-index:50;padding:16px;
+  }
+  .modalOverlay.show{display:flex;}
+  .modal{
+    background:var(--parchment);color:var(--text-dark);border-radius:10px;
+    width:100%;max-width:400px;max-height:88vh;overflow-y:auto;
+    padding:20px;box-shadow:0 20px 60px rgba(0,0,0,0.5);
+  }
+  .modal h3{font-family:'Fraunces',serif;margin:0 0 14px;font-size:18px;}
+  .field{margin-bottom:12px;}
+  .field label{display:block;font-size:11.5px;font-weight:600;color:#6B5D46;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.4px;}
+  .field input, .field select, .field textarea{
+    width:100%;font-family:'Inter',sans-serif;font-size:14px;padding:8px 10px;
+    border:1px solid #C9B98C;border-radius:6px;background:#FBF6E8;color:var(--text-dark);
+  }
+  .field textarea{resize:vertical;min-height:56px;font-family:'Inter',sans-serif;}
+  .fieldRow{display:flex;gap:10px;}
+  .fieldRow .field{flex:1;}
+  .modalActions{display:flex;justify-content:space-between;gap:8px;margin-top:16px;}
+  .modalActions .left{display:flex;gap:8px;}
+  .modal button{border-radius:6px;}
+  .modal button.danger{background:#B5484A;color:#fff;border-color:#B5484A;}
+  .modal button.danger:hover{background:#9E3D3F;}
+  .modal button.primary{background:var(--ink);color:var(--parchment);border-color:var(--ink);}
+  .modal button.primary:hover{background:#4A3D2C;}
+  .modal button.ghost{background:transparent;border-color:#C9B98C;color:var(--text-dark);}
+
+  #relForm select, #relForm input{margin-bottom:2px;}
+
+  /* Mobile */
+  #mobileTabs{display:none;}
+  @media (max-width: 760px){
+    header{padding:10px 14px 8px;}
+    header h1{font-size:18px;}
+    .toolbar button span.lbl{display:none;}
+    #main{position:relative;}
+    #sidePanel{
+      position:absolute;inset:0;transform:translateX(100%);transition:transform .22s ease;
+      width:100%;z-index:5;
+    }
+    #sidePanel.show{transform:translateX(0);}
+    #canvasPanel.hide{display:none;}
+    #mobileTabs{
+      display:flex;position:absolute;bottom:14px;left:50%;transform:translateX(-50%);
+      background:rgba(34,29,23,0.95);border:1px solid var(--border);border-radius:24px;
+      padding:4px;gap:4px;z-index:6;
+    }
+    #mobileTabs button{border-radius:20px;border:none;padding:8px 18px;font-size:12.5px;}
+    #mobileTabs button.active{background:var(--parchment);color:var(--text-dark);}
+    #legend{bottom:64px;}
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="titles">
+      <h1>Family Tree</h1>
+      <div class="sub">a map of who belongs to whom</div>
+    </div>
+    <div class="toolbar">
+      <span id="saveStatus">saved</span>
+      <button id="btnSettings" title="Cloud sync settings">⚙</button>
+      <button id="btnAddChar" class="primary">+ <span class="lbl">Character</span></button>
+      <button id="btnAddRel">🧵 <span class="lbl">Relationship</span></button>
+      <button id="btnArrange">⟲ <span class="lbl">Auto-arrange</span></button>
+      <button id="btnContemp">◐ <span class="lbl">Contemporaries</span></button>
+      <button id="btnExport">↓ <span class="lbl">Export</span></button>
+      <button id="btnImport">↑ <span class="lbl">Import</span></button>
+      <input type="file" id="fileImport" accept="application/json" style="display:none;">
+    </div>
+  </header>
+
+  <div id="main">
+    <div id="canvasPanel">
+      <svg id="svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet">
+        <g id="edgeLayer"></g>
+        <g id="cardLayer"></g>
+      </svg>
+      <div id="legend"></div>
+      <div id="emptyState">
+        <h3>An empty stage</h3>
+        <p>Add your first character to begin mapping the cast.</p>
+        <button id="btnEmptyAdd" class="primary">+ Add a character</button>
+      </div>
+    </div>
+
+    <div id="sidePanel">
+      <div class="panelHeader">
+        <h2>Cast</h2>
+        <p>Tap a name to edit, or a card on the map.</p>
+      </div>
+      <div id="castList"></div>
+      <div class="panelDivider"></div>
+      <div class="panelHeader">
+        <h2>Relationships</h2>
+        <p>Every thread connecting the cast.</p>
+      </div>
+      <div id="relList"></div>
+      <div class="panelFoot">
+        <button id="btnAddCharSide" style="flex:1;">+ Character</button>
+        <button id="btnAddRelSide" style="flex:1;">+ Relationship</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="mobileTabs">
+    <button id="tabMap" class="active">Map</button>
+    <button id="tabCast">Cast</button>
+  </div>
+</div>
+
+<!-- Character modal -->
+<div class="modalOverlay" id="charModalOverlay">
+  <div class="modal">
+    <h3 id="charModalTitle">New character</h3>
+    <div class="field">
+      <label>Name</label>
+      <input type="text" id="fName" placeholder="e.g. Eleanor Voss">
+    </div>
+    <div class="field">
+      <label>Role / notes</label>
+      <textarea id="fRole" placeholder="e.g. Youngest daughter, reluctant heir"></textarea>
+    </div>
+    <div class="fieldRow">
+      <div class="field">
+        <label>Birth year</label>
+        <input type="number" id="fBirth" placeholder="optional">
+      </div>
+      <div class="field">
+        <label>Death year</label>
+        <input type="number" id="fDeath" placeholder="optional">
+      </div>
+    </div>
+    <div class="modalActions">
+      <div class="left">
+        <button class="danger" id="btnDeleteChar" style="display:none;">Delete</button>
+      </div>
+      <div class="left">
+        <button class="ghost" id="btnCharCancel">Cancel</button>
+        <button class="primary" id="btnCharSave">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Relationship modal -->
+<div class="modalOverlay" id="relModalOverlay">
+  <div class="modal">
+    <h3>New relationship</h3>
+    <div id="relForm">
+      <div class="field">
+        <label>Person A</label>
+        <select id="relA"></select>
+      </div>
+      <div class="field">
+        <label>Relationship type</label>
+        <select id="relType">
+          <option value="parent">Parent of Person B</option>
+          <option value="spouse">Spouse of</option>
+          <option value="sibling">Sibling of</option>
+          <option value="friend">Friend of</option>
+          <option value="rival">Rival of</option>
+          <option value="mentor">Mentor of Person B</option>
+          <option value="other">Other…</option>
+        </select>
+      </div>
+      <div class="field" id="customLabelField" style="display:none;">
+        <label>Custom label</label>
+        <input type="text" id="relCustomLabel" placeholder="e.g. blackmails">
+      </div>
+      <div class="field">
+        <label>Person B</label>
+        <select id="relB"></select>
+      </div>
+    </div>
+    <div class="modalActions">
+      <div class="left"></div>
+      <div class="left">
+        <button class="ghost" id="btnRelCancel">Cancel</button>
+        <button class="primary" id="btnRelSave">Add</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Settings modal -->
+<div class="modalOverlay" id="settingsModalOverlay">
+  <div class="modal">
+    <h3>Cloud sync</h3>
+    <p style="font-size:12.5px;color:#6B5D46;margin:-8px 0 14px;">Connect a Supabase project so this tree saves to the cloud and stays in sync across devices. Leave blank to save only on this device.</p>
+    <div class="field">
+      <label>Project URL</label>
+      <input type="text" id="fSupaUrl" placeholder="https://xxxx.supabase.co">
+    </div>
+    <div class="field">
+      <label>Anon public key</label>
+      <input type="text" id="fSupaKey" placeholder="eyJhbGciOi...">
+    </div>
+    <div class="field">
+      <label>Tree ID</label>
+      <input type="text" id="fSupaTreeId" placeholder="main">
+    </div>
+    <p style="font-size:11px;color:#8A7A5C;margin:-6px 0 0;">Anyone else with these same three values shares this tree — use the same Tree ID on your wife's phone to sync with yours.</p>
+    <div class="modalActions">
+      <div class="left"></div>
+      <div class="left">
+        <button class="ghost" id="btnSettingsCancel">Cancel</button>
+        <button class="primary" id="btnSettingsSave">Connect</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  const REL_META = {
+    parent: {label:'parent of', hex:'var(--c-parent)', color:'#D8C9A0', family:true},
+    spouse: {label:'spouse of', hex:'var(--c-spouse)', color:'#B5484A'},
+    sibling:{label:'sibling of', hex:'var(--c-sibling)', color:'#6E8A6F'},
+    friend: {label:'friend of', hex:'var(--c-friend)', color:'#6C8CAE'},
+    rival:  {label:'rival of', hex:'var(--c-rival)', color:'#C97B3D'},
+    mentor: {label:'mentor of', hex:'var(--c-mentor)', color:'#9575B5'},
+    other:  {label:'connected to', hex:'var(--c-other)', color:'#8A8378'}
+  };
+
+  const CARD_W = 158, CARD_H = 64;
+  const DB_NAME = 'familyTreeDB', STORE = 'state';
+  const CFG_KEY = 'familyTree.supabaseConfig';
+
+  let state = { characters: [], relationships: [] };
+  let db = null;
+  let editingCharId = null;
+  let contemporariesMode = false;
+  let activeContemporary = null;
+  let saveTimer = null;
+  let supa = null;
+  let treeId = 'main';
+  let lastSavedJSON = null;
+  let realtimeChannel = null;
+
+  // ---------- Config ----------
+  function getConfig(){
+    try{ return JSON.parse(localStorage.getItem(CFG_KEY) || 'null'); }
+    catch(e){ return null; }
+  }
+  function setConfig(cfg){
+    localStorage.setItem(CFG_KEY, JSON.stringify(cfg));
+  }
+  function clearConfig(){
+    localStorage.removeItem(CFG_KEY);
+  }
+
+  // ---------- IndexedDB (local fallback, used when cloud sync isn't configured) ----------
+  function openDB(){
+    return new Promise((resolve, reject)=>{
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = (e)=>{
+        const d = e.target.result;
+        if(!d.objectStoreNames.contains(STORE)) d.createObjectStore(STORE);
+      };
+      req.onsuccess = ()=> resolve(req.result);
+      req.onerror = ()=> reject(req.error);
+    });
+  }
+
+  function loadLocal(){
+    setStatus('loading…');
+    openDB().then(d=>{
+      db = d;
+      const tx = db.transaction(STORE, 'readonly');
+      const getReq = tx.objectStore(STORE).get('main');
+      getReq.onsuccess = ()=>{
+        if(getReq.result) state = getReq.result;
+        renderAll();
+        setStatus('saved (this device)');
+      };
+      getReq.onerror = ()=>{ renderAll(); setStatus('new file'); };
+    }).catch(err=>{
+      console.error('DB open failed', err);
+      renderAll();
+      setStatus('no storage');
+    });
+  }
+
+  function saveLocal(){
+    if(!db){ setStatus('not saved'); return; }
+    try{
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).put(state, 'main');
+      tx.oncomplete = ()=> setStatus('saved (this device)');
+      tx.onerror = ()=> setStatus('save failed — retry?');
+    }catch(err){
+      console.error(err);
+      setStatus('save failed — retry?');
+    }
+  }
+
+  // ---------- Supabase (cloud sync) ----------
+  function initSupabase(cfg){
+    supa = window.supabase.createClient(cfg.url, cfg.key);
+    treeId = cfg.treeId || 'main';
+  }
+
+  function loadCloud(){
+    setStatus('connecting…');
+    supa.from('family_tree_state').select('data').eq('id', treeId).maybeSingle()
+      .then(({data, error})=>{
+        if(error){
+          console.error(error);
+          setStatus('cloud error — check settings');
+          return;
+        }
+        if(data && data.data){
+          state = data.data;
+        }
+        lastSavedJSON = JSON.stringify(state);
+        renderAll();
+        setStatus('synced');
+        subscribeRealtime();
+      });
+  }
+
+  function saveCloud(){
+    setStatus('saving…');
+    const json = JSON.stringify(state);
+    lastSavedJSON = json;
+    supa.from('family_tree_state')
+      .upsert({ id: treeId, data: state, updated_at: new Date().toISOString() })
+      .then(({error})=>{
+        if(error){ console.error(error); setStatus('save failed — retry?'); }
+        else setStatus('synced');
+      });
+  }
+
+  function subscribeRealtime(){
+    if(realtimeChannel) supa.removeChannel(realtimeChannel);
+    realtimeChannel = supa.channel('family_tree_'+treeId)
+      .on('postgres_changes', { event:'*', schema:'public', table:'family_tree_state', filter:`id=eq.${treeId}` }, (payload)=>{
+        const incoming = payload.new && payload.new.data;
+        if(!incoming) return;
+        const incomingJSON = JSON.stringify(incoming);
+        if(incomingJSON === lastSavedJSON) return; // our own write echoing back
+        state = incoming;
+        lastSavedJSON = incomingJSON;
+        renderAll();
+        setStatus('synced (updated elsewhere)');
+      })
+      .subscribe();
+  }
+
+  function load(){
+    const cfg = getConfig();
+    if(cfg && cfg.url && cfg.key){
+      initSupabase(cfg);
+      loadCloud();
+    } else {
+      loadLocal();
+    }
+  }
+
+  function scheduleSave(){
+    setStatus('saving…');
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(save, 350);
+  }
+
+  function save(){
+    if(supa) saveCloud();
+    else saveLocal();
+  }
+
+  function setStatus(text){
+    document.getElementById('saveStatus').textContent = text;
+  }
+
+  // ---------- Helpers ----------
+  function uid(){ return Math.random().toString(36).slice(2,10) + Date.now().toString(36).slice(-4); }
+
+  function surnameOf(name){
+    const parts = name.trim().split(/\s+/);
+    return parts.length > 1 ? parts[parts.length-1] : parts[0];
+  }
+
+  function hashStr(s){
+    let h = 0;
+    for(let i=0;i<s.length;i++){ h = (h*31 + s.charCodeAt(i)) | 0; }
+    return Math.abs(h);
+  }
+
+  const SURNAME_PALETTE = ['#B5484A','#6C8CAE','#6E8A6F','#C97B3D','#9575B5','#B08A3E','#4E8C82','#A15C7E'];
+  function surnameColor(name){
+    const s = surnameOf(name);
+    return SURNAME_PALETTE[hashStr(s) % SURNAME_PALETTE.length];
+  }
+
+  function getChar(id){ return state.characters.find(c=>c.id===id); }
+
+  function relatedChars(id){
+    const out = new Set();
+    state.relationships.forEach(r=>{
+      if(r.a===id) out.add(r.b);
+      if(r.b===id) out.add(r.a);
+    });
+    return out;
+  }
+
+  // ---------- Layout (hierarchical, multi-pass) ----------
+  function computeLayout(){
+    const chars = state.characters;
+    if(chars.length === 0) return;
+
+    const childrenOf = {}; // parentId -> [childId]
+    const parentsOf = {};  // childId -> [parentId]
+    chars.forEach(c=>{ childrenOf[c.id]=[]; parentsOf[c.id]=[]; });
+    state.relationships.forEach(r=>{
+      if(r.type==='parent'){
+        childrenOf[r.a] = childrenOf[r.a] || [];
+        childrenOf[r.a].push(r.b);
+        parentsOf[r.b] = parentsOf[r.b] || [];
+        parentsOf[r.b].push(r.a);
+      }
+    });
+
+    // depth = longest chain of parent->child from a root
+    const depth = {};
+    function computeDepth(id, visiting){
+      if(depth[id] !== undefined) return depth[id];
+      if(visiting.has(id)) return 0; // cycle guard
+      visiting.add(id);
+      const parents = parentsOf[id] || [];
+      let d = 0;
+      parents.forEach(pid=>{ d = Math.max(d, computeDepth(pid, visiting) + 1); });
+      visiting.delete(id);
+      depth[id] = d;
+      return d;
+    }
+    chars.forEach(c=> computeDepth(c.id, new Set()));
+
+    const byDepth = {};
+    chars.forEach(c=>{
+      byDepth[depth[c.id]] = byDepth[depth[c.id]] || [];
+      byDepth[depth[c.id]].push(c.id);
+    });
+
+    const rowGap = 150, colGap = 70;
+    const order = {}; // id -> x-order index within its row (float, can shift to average children)
+
+    // initial pass: order by existing x within row, or original array order
+    const maxDepth = Math.max(...Object.keys(byDepth).map(Number));
+    for(let d=0; d<=maxDepth; d++){
+      const ids = byDepth[d] || [];
+      ids.sort((a,b)=>{
+        const ca = getChar(a), cb = getChar(b);
+        return (ca.x||0) - (cb.x||0);
+      });
+      ids.forEach((id,i)=>{ order[id] = i; });
+    }
+
+    // multiple passes: center parents over midpoint of children, resolve overlaps
+    for(let pass=0; pass<4; pass++){
+      for(let d=maxDepth-1; d>=0; d--){
+        const ids = byDepth[d] || [];
+        ids.forEach(id=>{
+          const kids = childrenOf[id] || [];
+          if(kids.length){
+            const avg = kids.reduce((s,k)=> s + (order[k]||0), 0) / kids.length;
+            order[id] = avg;
+          }
+        });
+        // resolve overlaps: sort by order, then space at minimum 1 apart
+        const rowIds = (byDepth[d]||[]).slice().sort((a,b)=> order[a]-order[b]);
+        let prev = -Infinity;
+        rowIds.forEach(id=>{
+          if(order[id] < prev + 1) order[id] = prev + 1;
+          prev = order[id];
+        });
+      }
+    }
+
+    // normalize each row to start near 0
+    for(let d=0; d<=maxDepth; d++){
+      const ids = byDepth[d] || [];
+      if(!ids.length) continue;
+      const minOrder = Math.min(...ids.map(id=>order[id]));
+      ids.forEach(id=>{
+        const c = getChar(id);
+        c.x = (order[id]-minOrder) * (CARD_W + colGap) + 60;
+        c.y = d * rowGap + 50;
+      });
+    }
+  }
+
+  // ---------- Rendering ----------
+  const svg = document.getElementById('svg');
+  const cardLayer = document.getElementById('cardLayer');
+  const edgeLayer = document.getElementById('edgeLayer');
+  const emptyState = document.getElementById('emptyState');
+
+  function renderAll(){
+    renderCanvas();
+    renderCastList();
+    renderRelList();
+    renderLegend();
+    populateRelSelects();
+    emptyState.classList.toggle('hide', state.characters.length>0);
+  }
+
+  function cardCenter(c){ return {x: c.x + CARD_W/2, y: c.y + CARD_H/2}; }
+
+  function edgePoints(a, b){
+    // connect nearest edges of the two boxes (top/bottom for family, sides otherwise)
+    const ca = cardCenter(a), cb = cardCenter(b);
+    return {x1:ca.x, y1:ca.y, x2:cb.x, y2:cb.y};
+  }
+
+  function renderCanvas(){
+    // compute bounding box for viewBox
+    let maxX = 800, maxY = 600;
+    state.characters.forEach(c=>{
+      maxX = Math.max(maxX, c.x + CARD_W + 100);
+      maxY = Math.max(maxY, c.y + CARD_H + 100);
+    });
+    svg.setAttribute('viewBox', `0 0 ${maxX} ${maxY}`);
+
+    edgeLayer.innerHTML = '';
+    cardLayer.innerHTML = '';
+
+    // edges
+    state.relationships.forEach(rel=>{
+      const a = getChar(rel.a), b = getChar(rel.b);
+      if(!a || !b) return;
+      const meta = REL_META[rel.type] || REL_META.other;
+
+      if(rel.type === 'parent'){
+        const x1 = a.x + CARD_W/2, y1 = a.y + CARD_H;
+        const x2 = b.x + CARD_W/2, y2 = b.y;
+        const midY = (y1+y2)/2;
+        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d', `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`);
+        const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+        g.setAttribute('class','edge-family');
+        g.appendChild(path);
+        edgeLayer.appendChild(g);
+      } else {
+        const ca = cardCenter(a), cb = cardCenter(b);
+        const mx = (ca.x+cb.x)/2, my = (ca.y+cb.y)/2;
+        const dx = cb.x-ca.x, dy = cb.y-ca.y;
+        const dist = Math.max(1, Math.hypot(dx,dy));
+        const curveOffset = Math.min(60, dist*0.18) * (hashStr(rel.id)%2===0 ? 1 : -1);
+        const nx = -dy/dist, ny = dx/dist;
+        const cx = mx + nx*curveOffset, cy = my + ny*curveOffset;
+
+        const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+        g.setAttribute('class','edge-thread');
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+        path.setAttribute('d', `M ${ca.x} ${ca.y} Q ${cx} ${cy} ${cb.x} ${cb.y}`);
+        path.setAttribute('stroke', meta.color);
+        g.appendChild(path);
+
+        const hit = document.createElementNS('http://www.w3.org/2000/svg','path');
+        hit.setAttribute('class','edge-hit');
+        hit.setAttribute('d', `M ${ca.x} ${ca.y} Q ${cx} ${cy} ${cb.x} ${cb.y}`);
+        hit.addEventListener('click', ()=> openRelForEdit(rel.id));
+        g.appendChild(hit);
+
+        const label = rel.type==='other' && rel.customLabel ? rel.customLabel : meta.label;
+        const tw = Math.max(30, label.length*5.6+10);
+        const tagBg = document.createElementNS('http://www.w3.org/2000/svg','rect');
+        tagBg.setAttribute('class','tagbg');
+        tagBg.setAttribute('x', cx - tw/2);
+        tagBg.setAttribute('y', cy - 9);
+        tagBg.setAttribute('width', tw);
+        tagBg.setAttribute('height', 16);
+        tagBg.setAttribute('rx', 4);
+        g.appendChild(tagBg);
+
+        const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+        text.setAttribute('x', cx);
+        text.setAttribute('y', cy + 3);
+        text.setAttribute('text-anchor','middle');
+        text.setAttribute('fill', meta.color);
+        text.textContent = label;
+        g.appendChild(text);
+
+        edgeLayer.appendChild(g);
+      }
+    });
+
+    // cards
+    state.characters.forEach(c=>{
+      const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+      g.setAttribute('class','card');
+      g.setAttribute('transform', `translate(${c.x},${c.y})`);
+      g.dataset.id = c.id;
+
+      let opacityClass = '';
+      if(contemporariesMode && activeContemporary){
+        if(c.id === activeContemporary){
+          opacityClass = '';
+        } else {
+          const overlap = lifespansOverlap(getChar(activeContemporary), c);
+          if(overlap === 'unknown') opacityClass = 'faded-partial';
+          else if(!overlap) opacityClass = 'faded';
+        }
+      }
+      if(opacityClass) g.classList.add(opacityClass);
+
+      const stripe = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      stripe.setAttribute('class','stripe');
+      stripe.setAttribute('x',0); stripe.setAttribute('y',0);
+      stripe.setAttribute('width', CARD_W); stripe.setAttribute('height', 5);
+      stripe.setAttribute('rx', 2);
+      stripe.setAttribute('fill', surnameColor(c.name));
+      g.appendChild(stripe);
+
+      const body = document.createElementNS('http://www.w3.org/2000/svg','rect');
+      body.setAttribute('class','body');
+      body.setAttribute('x',0); body.setAttribute('y',0);
+      body.setAttribute('width', CARD_W); body.setAttribute('height', CARD_H);
+      body.setAttribute('rx', 7);
+      g.appendChild(body);
+
+      const nameText = document.createElementNS('http://www.w3.org/2000/svg','text');
+      nameText.setAttribute('class','name');
+      nameText.setAttribute('x', 10); nameText.setAttribute('y', 24);
+      nameText.setAttribute('font-size', 14);
+      nameText.textContent = truncate(c.name, 20);
+      g.appendChild(nameText);
+
+      if(c.role){
+        const roleText = document.createElementNS('http://www.w3.org/2000/svg','text');
+        roleText.setAttribute('class','role');
+        roleText.setAttribute('x', 10); roleText.setAttribute('y', 40);
+        roleText.setAttribute('font-size', 10.5);
+        roleText.textContent = truncate(c.role, 26);
+        g.appendChild(roleText);
+      }
+
+      if(c.birth || c.death){
+        const yearsText = document.createElementNS('http://www.w3.org/2000/svg','text');
+        yearsText.setAttribute('class','years');
+        yearsText.setAttribute('x', 10); yearsText.setAttribute('y', 55);
+        yearsText.setAttribute('font-size', 10);
+        yearsText.textContent = `${c.birth||'?'} – ${c.death||'…'}`;
+        g.appendChild(yearsText);
+      }
+
+      g.addEventListener('click', (e)=>{
+        if(g.classList.contains('wasDragged')){ g.classList.remove('wasDragged'); return; }
+        if(contemporariesMode){
+          activeContemporary = activeContemporary === c.id ? null : c.id;
+          renderCanvas();
+        } else {
+          openCharForEdit(c.id);
+        }
+      });
+
+      makeDraggable(g, c);
+      cardLayer.appendChild(g);
+    });
+  }
+
+  function truncate(s, n){ return s.length>n ? s.slice(0,n-1)+'…' : s; }
+
+  function lifespansOverlap(a, b){
+    if(!a.birth && !a.death) return 'unknown';
+    if(!b.birth && !b.death) return 'unknown';
+    const aStart = a.birth ?? -Infinity, aEnd = a.death ?? Infinity;
+    const bStart = b.birth ?? -Infinity, bEnd = b.death ?? Infinity;
+    if(aStart===-Infinity && aEnd===Infinity) return 'unknown';
+    if(bStart===-Infinity && bEnd===Infinity) return 'unknown';
+    return aStart <= bEnd && bStart <= aEnd;
+  }
+
+  // ---------- Dragging ----------
+  function makeDraggable(g, c){
+    let dragging = false, startX=0, startY=0, origX=0, origY=0;
+    let ctm = null;
+
+    g.addEventListener('pointerdown', (e)=>{
+      e.stopPropagation();
+      dragging = true;
+      g.setPointerCapture(e.pointerId);
+      g.classList.add('dragging');
+      ctm = svg.getScreenCTM();
+      startX = e.clientX; startY = e.clientY;
+      origX = c.x; origY = c.y;
+    });
+    g.addEventListener('pointermove', (e)=>{
+      if(!dragging) return;
+      const scale = ctm ? svg.viewBox.baseVal.width / svg.clientWidth : 1;
+      const dx = (e.clientX - startX) * scale;
+      const dy = (e.clientY - startY) * scale;
+      if(Math.abs(dx)>3 || Math.abs(dy)>3) g.classList.add('wasDragged');
+      c.x = origX + dx;
+      c.y = origY + dy;
+      renderCanvas();
+    });
+    g.addEventListener('pointerup', (e)=>{
+      if(!dragging) return;
+      dragging = false;
+      g.classList.remove('dragging');
+      scheduleSave();
+    });
+  }
+
+  // ---------- Pan ----------
+  (function setupPan(){
+    let panning=false, sx=0, sy=0, vb=null;
+    svg.addEventListener('pointerdown', (e)=>{
+      if(e.target !== svg) return;
+      panning = true; svg.classList.add('panning');
+      sx=e.clientX; sy=e.clientY;
+      vb = svg.viewBox.baseVal;
+    });
+    svg.addEventListener('pointermove', (e)=>{
+      if(!panning) return;
+      const scale = vb.width / svg.clientWidth;
+      vb.x -= (e.clientX-sx)*scale;
+      vb.y -= (e.clientY-sy)*scale;
+      sx=e.clientX; sy=e.clientY;
+    });
+    window.addEventListener('pointerup', ()=>{ panning=false; svg.classList.remove('panning'); });
+  })();
+
+  // ---------- Legend ----------
+  function renderLegend(){
+    const used = new Set(state.relationships.map(r=>r.type));
+    const el = document.getElementById('legend');
+    if(used.size===0){ el.classList.remove('show'); return; }
+    el.innerHTML = '';
+    if(used.has('parent')){
+      const row = document.createElement('div'); row.className='row';
+      row.innerHTML = `<span class="swatch" style="background:${REL_META.parent.color}"></span> Family line (parent → child)`;
+      el.appendChild(row);
+    }
+    ['spouse','sibling','friend','rival','mentor','other'].forEach(t=>{
+      if(used.has(t)){
+        const row = document.createElement('div'); row.className='row';
+        row.innerHTML = `<span class="swatch" style="background:${REL_META[t].color}"></span> ${REL_META[t].label}`;
+        el.appendChild(row);
+      }
+    });
+    el.classList.add('show');
+  }
+
+  // ---------- Cast list ----------
+  function renderCastList(){
+    const list = document.getElementById('castList');
+    if(state.characters.length===0){
+      list.innerHTML = `<p style="color:var(--text-muted);font-size:12.5px;padding:8px;">No characters yet.</p>`;
+      return;
+    }
+    list.innerHTML = state.characters
+      .slice()
+      .sort((a,b)=> a.name.localeCompare(b.name))
+      .map(c=>{
+        const years = (c.birth||c.death) ? `${c.birth||'?'}–${c.death||'…'}` : '';
+        return `<div class="listItem" data-charid="${c.id}">
+          <div class="info">
+            <span class="dot" style="background:${surnameColor(c.name)};display:inline-block;margin-right:2px;"></span>
+            <span class="t1">${escapeHtml(c.name)}</span>
+            <div class="t2">${escapeHtml(c.role||'')}${years?' · '+years:''}</div>
+          </div>
+          <button class="del" data-delchar="${c.id}" title="Delete">✕</button>
+        </div>`;
+      }).join('');
+
+    list.querySelectorAll('[data-charid]').forEach(el=>{
+      el.querySelector('.info').addEventListener('click', ()=> openCharForEdit(el.dataset.charid));
+    });
+    list.querySelectorAll('[data-delchar]').forEach(btn=>{
+      btn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        deleteCharacter(btn.dataset.delchar);
+      });
+    });
+  }
+
+  function escapeHtml(s){
+    const d = document.createElement('div'); d.textContent = s||''; return d.innerHTML;
+  }
+
+  // ---------- Rel list ----------
+  function renderRelList(){
+    const list = document.getElementById('relList');
+    if(state.relationships.length===0){
+      list.innerHTML = `<p style="color:var(--text-muted);font-size:12.5px;padding:8px;">No relationships yet.</p>`;
+      return;
+    }
+    list.innerHTML = state.relationships.map(r=>{
+      const a = getChar(r.a), b = getChar(r.b);
+      if(!a||!b) return '';
+      const meta = REL_META[r.type] || REL_META.other;
+      const verb = r.type==='other' ? (r.customLabel || 'connected to') : meta.label;
+      return `<div class="listItem">
+        <div class="info">
+          <div class="t1"><span class="dot" style="background:${meta.color};display:inline-block;margin-right:6px;"></span>${escapeHtml(a.name)} — ${escapeHtml(verb)} — ${escapeHtml(b.name)}</div>
+        </div>
+        <button class="del" data-rel="${r.id}" title="Remove relationship">✕</button>
+      </div>`;
+    }).join('');
+    list.querySelectorAll('[data-rel]').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        const id = btn.getAttribute('data-rel');
+        state.relationships = state.relationships.filter(r=>r.id!==id);
+        renderAll();
+        scheduleSave();
+      });
+    });
+  }
+
+  // ---------- Character modal ----------
+  const charOverlay = document.getElementById('charModalOverlay');
+  function openCharForNew(){
+    editingCharId = null;
+    document.getElementById('charModalTitle').textContent = 'New character';
+    document.getElementById('fName').value = '';
+    document.getElementById('fRole').value = '';
+    document.getElementById('fBirth').value = '';
+    document.getElementById('fDeath').value = '';
+    document.getElementById('btnDeleteChar').style.display = 'none';
+    charOverlay.classList.add('show');
+    setTimeout(()=>document.getElementById('fName').focus(), 50);
+  }
+  function openCharForEdit(id){
+    const c = getChar(id);
+    if(!c) return;
+    editingCharId = id;
+    document.getElementById('charModalTitle').textContent = 'Edit character';
+    document.getElementById('fName').value = c.name;
+    document.getElementById('fRole').value = c.role||'';
+    document.getElementById('fBirth').value = c.birth ?? '';
+    document.getElementById('fDeath').value = c.death ?? '';
+    document.getElementById('btnDeleteChar').style.display = 'inline-block';
+    charOverlay.classList.add('show');
+  }
+  function closeCharModal(){ charOverlay.classList.remove('show'); }
+
+  document.getElementById('btnCharCancel').addEventListener('click', closeCharModal);
+  charOverlay.addEventListener('click', (e)=>{ if(e.target===charOverlay) closeCharModal(); });
+
+  document.getElementById('btnCharSave').addEventListener('click', ()=>{
+    const name = document.getElementById('fName').value.trim();
+    if(!name){ document.getElementById('fName').focus(); return; }
+    const role = document.getElementById('fRole').value.trim();
+    const birthVal = document.getElementById('fBirth').value;
+    const deathVal = document.getElementById('fDeath').value;
+    const birth = birthVal===''? null : parseInt(birthVal,10);
+    const death = deathVal===''? null : parseInt(deathVal,10);
+
+    if(editingCharId){
+      const c = getChar(editingCharId);
+      c.name = name; c.role = role; c.birth = birth; c.death = death;
+    } else {
+      state.characters.push({
+        id: uid(), name, role, birth, death,
+        x: 80 + (state.characters.length%5)*40,
+        y: 80 + Math.floor(state.characters.length/5)*40
+      });
+    }
+    closeCharModal();
+    renderAll();
+    scheduleSave();
+  });
+
+  document.getElementById('btnDeleteChar').addEventListener('click', ()=>{
+    if(editingCharId) deleteCharacter(editingCharId);
+    closeCharModal();
+  });
+
+  function deleteCharacter(id){
+    state.characters = state.characters.filter(c=>c.id!==id);
+    state.relationships = state.relationships.filter(r=>r.a!==id && r.b!==id);
+    if(activeContemporary===id) activeContemporary=null;
+    renderAll();
+    scheduleSave();
+  }
+
+  // ---------- Relationship modal ----------
+  const relOverlay = document.getElementById('relModalOverlay');
+  let editingRelId = null;
+
+  function populateRelSelects(){
+    const opts = state.characters
+      .slice().sort((a,b)=>a.name.localeCompare(b.name))
+      .map(c=>`<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+    document.getElementById('relA').innerHTML = opts;
+    document.getElementById('relB').innerHTML = opts;
+  }
+
+  function openRelForNew(){
+    if(state.characters.length < 2){
+      openCharForNew();
+      return;
+    }
+    editingRelId = null;
+    populateRelSelects();
+    document.getElementById('relType').value = 'parent';
+    document.getElementById('customLabelField').style.display = 'none';
+    document.getElementById('relCustomLabel').value = '';
+    if(document.getElementById('relB').options.length>1) document.getElementById('relB').selectedIndex = 1;
+    relOverlay.classList.add('show');
+  }
+  function openRelForEdit(id){
+    // clicking an edge: just delete-or-view via list; keep simple, open list panel highlight not required
+    // for simplicity, allow deleting via click confirmation
+    const r = state.relationships.find(x=>x.id===id);
+    if(!r) return;
+    if(confirm('Remove this relationship?')){
+      state.relationships = state.relationships.filter(x=>x.id!==id);
+      renderAll();
+      scheduleSave();
+    }
+  }
+  function closeRelModal(){ relOverlay.classList.remove('show'); }
+
+  document.getElementById('relType').addEventListener('change', (e)=>{
+    document.getElementById('customLabelField').style.display = e.target.value==='other' ? 'block' : 'none';
+  });
+  document.getElementById('btnRelCancel').addEventListener('click', closeRelModal);
+  relOverlay.addEventListener('click', (e)=>{ if(e.target===relOverlay) closeRelModal(); });
+
+  document.getElementById('btnRelSave').addEventListener('click', ()=>{
+    const a = document.getElementById('relA').value;
+    const b = document.getElementById('relB').value;
+    const type = document.getElementById('relType').value;
+    const customLabel = document.getElementById('relCustomLabel').value.trim();
+    if(!a || !b || a===b){ alert('Choose two different people.'); return; }
+    state.relationships.push({ id: uid(), a, b, type, customLabel: type==='other' ? customLabel : '' });
+    closeRelModal();
+    computeLayout();
+    renderAll();
+    scheduleSave();
+  });
+
+  // ---------- Settings modal ----------
+  const settingsOverlay = document.getElementById('settingsModalOverlay');
+  document.getElementById('btnSettings').addEventListener('click', ()=>{
+    const cfg = getConfig() || {};
+    document.getElementById('fSupaUrl').value = cfg.url || '';
+    document.getElementById('fSupaKey').value = cfg.key || '';
+    document.getElementById('fSupaTreeId').value = cfg.treeId || 'main';
+    settingsOverlay.classList.add('show');
+  });
+  document.getElementById('btnSettingsCancel').addEventListener('click', ()=> settingsOverlay.classList.remove('show'));
+  settingsOverlay.addEventListener('click', (e)=>{ if(e.target===settingsOverlay) settingsOverlay.classList.remove('show'); });
+
+  document.getElementById('btnSettingsSave').addEventListener('click', ()=>{
+    const url = document.getElementById('fSupaUrl').value.trim();
+    const key = document.getElementById('fSupaKey').value.trim();
+    const id = document.getElementById('fSupaTreeId').value.trim() || 'main';
+
+    if(!url || !key){
+      clearConfig();
+      supa = null;
+      settingsOverlay.classList.remove('show');
+      loadLocal();
+      return;
+    }
+
+    setConfig({ url, key, treeId: id });
+    settingsOverlay.classList.remove('show');
+    initSupabase({ url, key, treeId: id });
+    loadCloud();
+  });
+
+  // ---------- Toolbar ----------
+  document.getElementById('btnAddChar').addEventListener('click', openCharForNew);
+  document.getElementById('btnAddCharSide').addEventListener('click', openCharForNew);
+  document.getElementById('btnEmptyAdd').addEventListener('click', openCharForNew);
+  document.getElementById('btnAddRel').addEventListener('click', openRelForNew);
+  document.getElementById('btnAddRelSide').addEventListener('click', openRelForNew);
+
+  document.getElementById('btnArrange').addEventListener('click', ()=>{
+    computeLayout();
+    renderCanvas();
+    scheduleSave();
+  });
+
+  document.getElementById('btnContemp').addEventListener('click', (e)=>{
+    contemporariesMode = !contemporariesMode;
+    activeContemporary = null;
+    e.target.closest('button').style.background = contemporariesMode ? 'var(--parchment)' : '';
+    e.target.closest('button').style.color = contemporariesMode ? 'var(--text-dark)' : '';
+    renderCanvas();
+  });
+
+  document.getElementById('btnExport').addEventListener('click', ()=>{
+    const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'dramatis-personae.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  });
+
+  document.getElementById('btnImport').addEventListener('click', ()=>{
+    document.getElementById('fileImport').click();
+  });
+  document.getElementById('fileImport').addEventListener('change', (e)=>{
+    const file = e.target.files[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      try{
+        const data = JSON.parse(reader.result);
+        if(!data.characters || !data.relationships) throw new Error('bad format');
+        if(state.characters.length>0){
+          if(!confirm('Importing will replace the current cast and relationships. Continue?')) return;
+        }
+        state = data;
+        renderAll();
+        scheduleSave();
+      }catch(err){
+        alert('Could not read that file — is it a Dramatis Personae export?');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  });
+
+  // ---------- Mobile tabs ----------
+  const tabMap = document.getElementById('tabMap');
+  const tabCast = document.getElementById('tabCast');
+  const sidePanel = document.getElementById('sidePanel');
+  const canvasPanel = document.getElementById('canvasPanel');
+  tabMap.addEventListener('click', ()=>{
+    tabMap.classList.add('active'); tabCast.classList.remove('active');
+    sidePanel.classList.remove('show'); canvasPanel.classList.remove('hide');
+  });
+  tabCast.addEventListener('click', ()=>{
+    tabCast.classList.add('active'); tabMap.classList.remove('active');
+    sidePanel.classList.add('show'); canvasPanel.classList.add('hide');
+  });
+
+  window.addEventListener('resize', renderCanvas);
+
+  load();
+})();
+</script>
+</body>
+</html>
