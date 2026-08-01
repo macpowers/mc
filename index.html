@@ -253,6 +253,10 @@
       <input type="text" id="fOccupation" placeholder="e.g. Seamstress">
     </div>
     <div class="field">
+      <label>Physical characteristics</label>
+      <input type="text" id="fPhysical" placeholder="e.g. Tall, red hair, walks with a limp">
+    </div>
+    <div class="field">
       <label>Interesting facts</label>
       <textarea id="fFacts" placeholder="e.g. Smuggled letters across the border during the war"></textarea>
     </div>
@@ -320,12 +324,7 @@
           <option value="friend">Friend of</option>
           <option value="rival">Rival of</option>
           <option value="mentor">Mentor of Person B</option>
-          <option value="other">Other…</option>
         </select>
-      </div>
-      <div class="field" id="customLabelField" style="display:none;">
-        <label>Custom label</label>
-        <input type="text" id="relCustomLabel" placeholder="e.g. blackmails">
       </div>
       <div class="field" id="marriageYearField" style="display:none;">
         <label>Year of marriage</label>
@@ -607,7 +606,7 @@
       byDepth[depth[c.id]].push(c.id);
     });
 
-    const rowGap = 120, colGap = 70;
+    const rowGap = 135, colGap = 46;
     const order = {}; // id -> x-order index within its row (float, can shift to average children)
 
     // initial pass: order by existing x within row, or original array order
@@ -621,7 +620,15 @@
       ids.forEach((id,i)=>{ order[id] = i; });
     }
 
-    // multiple passes: center parents over midpoint of children, resolve overlaps
+    const spouseMap = {}; // id -> Set of spouse ids
+    state.relationships.forEach(r=>{
+      if(r.type==='spouse'){
+        (spouseMap[r.a] = spouseMap[r.a] || new Set()).add(r.b);
+        (spouseMap[r.b] = spouseMap[r.b] || new Set()).add(r.a);
+      }
+    });
+
+    // multiple passes: center parents over midpoint of children, keep spouses adjacent, resolve overlaps
     for(let pass=0; pass<4; pass++){
       for(let d=maxDepth-1; d>=0; d--){
         const ids = byDepth[d] || [];
@@ -632,11 +639,34 @@
             order[id] = avg;
           }
         });
-        // resolve overlaps: sort by order, then space at minimum 1 apart
-        const rowIds = (byDepth[d]||[]).slice().sort((a,b)=> order[a]-order[b]);
+
+        // pull spouses next to each other before spacing out the row
+        const rowIdSet = new Set(byDepth[d] || []);
+        const sortedByOrder = (byDepth[d]||[]).slice().sort((a,b)=> order[a]-order[b]);
+        const visited = new Set();
+        const paired = [];
+        sortedByOrder.forEach(id=>{
+          if(visited.has(id)) return;
+          paired.push(id);
+          visited.add(id);
+          const spouses = spouseMap[id];
+          if(spouses){
+            spouses.forEach(sid=>{
+              if(!visited.has(sid) && rowIdSet.has(sid)){
+                paired.push(sid);
+                visited.add(sid);
+              }
+            });
+          }
+        });
+
+        // resolve overlaps: minimum 1 apart, spouse pairs pulled tighter together
         let prev = -Infinity;
-        rowIds.forEach(id=>{
-          if(order[id] < prev + 1) order[id] = prev + 1;
+        paired.forEach((id, i)=>{
+          const isSpouseOfPrev = i>0 && spouseMap[id] && spouseMap[id].has(paired[i-1]);
+          const gap = isSpouseOfPrev ? 0.62 : 1;
+          if(prev===-Infinity){ order[id] = 0; }
+          else if(order[id] < prev + gap){ order[id] = prev + gap; }
           prev = order[id];
         });
       }
@@ -908,7 +938,7 @@
         const marriagePart = c.marriageYear ? `m. ${c.marriageYear}` : '';
         const aliveTags = [c.alive1858?'alive 1858':null, c.alive1875?'alive 1875':null].filter(Boolean).join(', ');
         const placePart = c.birthplace && c.residence ? `b. ${c.birthplace} → ${c.residence}` : (c.birthplace ? `b. ${c.birthplace}` : (c.residence ? `lives: ${c.residence}` : ''));
-        const extras = [years, placePart, marriagePart, aliveTags].filter(Boolean).join(' · ');
+        const extras = [years, placePart, marriagePart, aliveTags, c.physical].filter(Boolean).join(' · ');
         const roleLine = [c.role, c.occupation].filter(Boolean).join(' · ');
         const factsLine = c.facts ? escapeHtml(c.facts.length>70 ? c.facts.slice(0,69)+'…' : c.facts) : '';
         return `<div class="listItem" data-charid="${c.id}">
@@ -975,6 +1005,7 @@
     document.getElementById('fName').value = '';
     document.getElementById('fRole').value = '';
     document.getElementById('fOccupation').value = '';
+    document.getElementById('fPhysical').value = '';
     document.getElementById('fFacts').value = '';
     document.getElementById('fBirth').value = '';
     document.getElementById('fDeath').value = '';
@@ -995,6 +1026,7 @@
     document.getElementById('fName').value = c.name;
     document.getElementById('fRole').value = c.role||'';
     document.getElementById('fOccupation').value = c.occupation||'';
+    document.getElementById('fPhysical').value = c.physical||'';
     document.getElementById('fFacts').value = c.facts||'';
     document.getElementById('fBirth').value = c.birth ?? '';
     document.getElementById('fDeath').value = c.death ?? '';
@@ -1016,6 +1048,7 @@
     if(!name){ document.getElementById('fName').focus(); return; }
     const role = document.getElementById('fRole').value.trim();
     const occupation = document.getElementById('fOccupation').value.trim();
+    const physical = document.getElementById('fPhysical').value.trim();
     const facts = document.getElementById('fFacts').value.trim();
     const birthVal = document.getElementById('fBirth').value;
     const deathVal = document.getElementById('fDeath').value;
@@ -1030,13 +1063,13 @@
 
     if(editingCharId){
       const c = getChar(editingCharId);
-      c.name = name; c.role = role; c.occupation = occupation; c.facts = facts;
+      c.name = name; c.role = role; c.occupation = occupation; c.physical = physical; c.facts = facts;
       c.birth = birth; c.death = death; c.birthplace = birthplace;
       c.residence = residence;
       c.marriageYear = marriageYear; c.alive1858 = alive1858; c.alive1875 = alive1875;
     } else {
       state.characters.push({
-        id: uid(), name, role, occupation, facts, birth, death, birthplace, residence, marriageYear, alive1858, alive1875,
+        id: uid(), name, role, occupation, physical, facts, birth, death, birthplace, residence, marriageYear, alive1858, alive1875,
         x: 80 + (state.characters.length%5)*40,
         y: 80 + Math.floor(state.characters.length/5)*40
       });
@@ -1079,8 +1112,6 @@
     editingRelId = null;
     populateRelSelects();
     document.getElementById('relType').value = 'parent';
-    document.getElementById('customLabelField').style.display = 'none';
-    document.getElementById('relCustomLabel').value = '';
     document.getElementById('marriageYearField').style.display = 'none';
     document.getElementById('relMarriageYear').value = '';
     if(document.getElementById('relB').options.length>1) document.getElementById('relB').selectedIndex = 1;
@@ -1100,7 +1131,6 @@
   function closeRelModal(){ relOverlay.classList.remove('show'); }
 
   document.getElementById('relType').addEventListener('change', (e)=>{
-    document.getElementById('customLabelField').style.display = e.target.value==='other' ? 'block' : 'none';
     document.getElementById('marriageYearField').style.display = e.target.value==='spouse' ? 'block' : 'none';
   });
   document.getElementById('btnRelCancel').addEventListener('click', closeRelModal);
@@ -1110,11 +1140,10 @@
     const a = document.getElementById('relA').value;
     const b = document.getElementById('relB').value;
     const type = document.getElementById('relType').value;
-    const customLabel = document.getElementById('relCustomLabel').value.trim();
     const marriageYearVal = document.getElementById('relMarriageYear').value;
     const marriageYear = (type==='spouse' && marriageYearVal!=='') ? parseInt(marriageYearVal,10) : null;
     if(!a || !b || a===b){ alert('Choose two different people.'); return; }
-    state.relationships.push({ id: uid(), a, b, type, customLabel: type==='other' ? customLabel : '', marriageYear });
+    state.relationships.push({ id: uid(), a, b, type, marriageYear });
     closeRelModal();
     computeLayout();
     renderAll();
