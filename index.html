@@ -280,6 +280,10 @@
       </div>
     </div>
     <div class="field">
+      <label>Maiden name</label>
+      <input type="text" id="fMaidenName" placeholder="e.g. Chevrolet — if different from family name">
+    </div>
+    <div class="field">
       <label>Nickname</label>
       <input type="text" id="fNickname" placeholder="e.g. Nell">
     </div>
@@ -648,11 +652,17 @@
     return parts.length > 1 ? parts[parts.length-1] : parts[0];
   }
 
+  function bloodSurname(c){
+    return c.maidenName || c.familyName || surnameOf(c.name);
+  }
+
   function displayName(c){
     const given = c.name || '';
     const family = c.familyName || '';
     const core = family ? `${given} ${family}`.trim() : given;
-    return c.nickname ? `${given} "${c.nickname}"${family ? ' '+family : ''}`.trim() : core;
+    let out = c.nickname ? `${given} "${c.nickname}"${family ? ' '+family : ''}`.trim() : core;
+    if(c.maidenName && c.maidenName !== c.familyName) out += ` (née ${c.maidenName})`;
+    return out;
   }
 
   function hashStr(s){
@@ -663,7 +673,7 @@
 
   const SURNAME_PALETTE = ['#B5484A','#6C8CAE','#6E8A6F','#C97B3D','#9575B5','#B08A3E','#4E8C82','#A15C7E'];
   function surnameColor(c){
-    const s = c.familyName || surnameOf(c.name);
+    const s = bloodSurname(c);
     return SURNAME_PALETTE[hashStr(s) % SURNAME_PALETTE.length];
   }
 
@@ -1177,9 +1187,10 @@
   function truncate(s, n){ return s.length>n ? s.slice(0,n-1)+'…' : s; }
 
   function getInitials(c){
-    if(c.familyName){
+    const surname = bloodSurname(c);
+    if(surname){
       const g = c.name.trim();
-      return ((g[0]||'') + (c.familyName.trim()[0]||'')).toUpperCase() || '?';
+      return ((g[0]||'') + (surname.trim()[0]||'')).toUpperCase() || '?';
     }
     const parts = c.name.trim().split(/\s+/).filter(Boolean);
     if(parts.length === 0) return '?';
@@ -1365,7 +1376,7 @@
     }
     list.innerHTML = state.characters
       .slice()
-      .sort((a,b)=> (a.familyName||surnameOf(a.name)).localeCompare(b.familyName||surnameOf(b.name)) || a.name.localeCompare(b.name))
+      .sort((a,b)=> bloodSurname(a).localeCompare(bloodSurname(b)) || a.name.localeCompare(b.name))
       .map(c=>{
         const bd = formatDate(c.birthDate), dd = formatDate(c.deathDate);
         const dates = (bd||dd) ? `${bd||'?'} – ${dd||'…'}` : '';
@@ -1504,6 +1515,7 @@
     document.getElementById('charModalTitle').textContent = 'New character';
     document.getElementById('fName').value = '';
     document.getElementById('fFamilyName').value = '';
+    document.getElementById('fMaidenName').value = '';
     document.getElementById('fNickname').value = '';
     document.getElementById('fRole').value = '';
     document.getElementById('fOccupation').value = '';
@@ -1541,6 +1553,7 @@
     document.getElementById('charModalTitle').textContent = 'Edit character';
     document.getElementById('fName').value = c.name;
     document.getElementById('fFamilyName').value = c.familyName || '';
+    document.getElementById('fMaidenName').value = c.maidenName || '';
     document.getElementById('fNickname').value = c.nickname || '';
     document.getElementById('fRole').value = c.role||'';
     document.getElementById('fOccupation').value = c.occupation||'';
@@ -1579,6 +1592,7 @@
     const name = document.getElementById('fName').value.trim();
     if(!name){ document.getElementById('fName').focus(); return; }
     const familyName = document.getElementById('fFamilyName').value.trim();
+    const maidenName = document.getElementById('fMaidenName').value.trim();
     const nickname = document.getElementById('fNickname').value.trim();
     const role = document.getElementById('fRole').value.trim();
     const occupation = document.getElementById('fOccupation').value.trim();
@@ -1607,7 +1621,7 @@
     const street1875 = document.getElementById('fStreet1875').value.trim();
 
     const fields = {
-      name, familyName, nickname, role, occupation, physical, personality, facts, notes,
+      name, familyName, maidenName, nickname, role, occupation, physical, personality, facts, notes,
       birthDate, deathDate, birthplace, residences, marriageDate,
       tome1, tome2, mainTome1, mainTome2,
       alive1858, age1858, residence1858, street1858,
@@ -1650,7 +1664,7 @@
 
   function populateRelSelects(){
     const opts = state.characters
-      .slice().sort((a,b)=> (a.familyName||surnameOf(a.name)).localeCompare(b.familyName||surnameOf(b.name)) || a.name.localeCompare(b.name))
+      .slice().sort((a,b)=> bloodSurname(a).localeCompare(bloodSurname(b)) || a.name.localeCompare(b.name))
       .map(c=>`<option value="${c.id}">${escapeHtml(displayName(c))}</option>`).join('');
     document.getElementById('relA').innerHTML = opts;
     document.getElementById('relB').innerHTML = opts;
