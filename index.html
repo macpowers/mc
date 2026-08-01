@@ -154,6 +154,13 @@
   .field textarea{resize:vertical;min-height:56px;font-family:'Inter',sans-serif;}
   .fieldRow{display:flex;gap:10px;}
   .fieldRow .field{flex:1;}
+  .residenceRow{display:flex;gap:6px;margin-bottom:6px;}
+  .residenceRow input{flex:1;}
+  .residenceRow button.removeResidence{
+    flex-shrink:0;width:34px;padding:0;background:transparent;
+    border:1px solid #C9B98C;color:#6B5D46;border-radius:6px;font-size:14px;
+  }
+  .residenceRow button.removeResidence:hover{background:#E7DCC0;}
   .modalActions{display:flex;justify-content:space-between;gap:8px;margin-top:16px;}
   .modalActions .left{display:flex;gap:8px;}
   .modal button{border-radius:6px;}
@@ -278,15 +285,16 @@
       <label>Interesting facts</label>
       <textarea id="fFacts" placeholder="e.g. Smuggled letters across the border during the war"></textarea>
     </div>
-    <div class="fieldRow">
-      <div class="field">
-        <label>Place of birth</label>
-        <input type="text" id="fBirthplace" placeholder="e.g. Marseille">
-      </div>
-      <div class="field">
-        <label>Place of residence</label>
-        <input type="text" id="fResidence" placeholder="e.g. Lyon">
-      </div>
+    <div class="field">
+      <label>Place of birth</label>
+      <input type="text" id="fBirthplace" list="birthplaceOptions" placeholder="e.g. Marseille — pick or type a new one">
+      <datalist id="birthplaceOptions"></datalist>
+    </div>
+    <div class="field">
+      <label>Places lived</label>
+      <div id="residenceRows"></div>
+      <datalist id="residenceOptions"></datalist>
+      <button type="button" id="btnAddResidence" class="ghost" style="width:100%;margin-top:4px;">+ Add another place</button>
     </div>
     <div class="fieldRow">
       <div class="field">
@@ -618,19 +626,27 @@
     // depth = the deeper of (a) longest chain of parent->child from a root,
     // and (b) this person's birth-year bucket — so a parent's row is always
     // above every child's row, AND older people are pulled toward the top.
+    // Spouses are also forced onto the same row as each other, so they stay
+    // side-by-side rather than drifting apart when their birth years differ.
     const depth = {};
-    function computeDepth(id, visiting){
-      if(depth[id] !== undefined) return depth[id];
-      if(visiting.has(id)) return 0; // cycle guard
-      visiting.add(id);
-      const parents = parentsOf[id] || [];
-      let d = birthBucket(getChar(id));
-      parents.forEach(pid=>{ d = Math.max(d, computeDepth(pid, visiting) + 1); });
-      visiting.delete(id);
-      depth[id] = d;
-      return d;
+    chars.forEach(c=>{ depth[c.id] = birthBucket(c); });
+
+    const spousePairs = state.relationships.filter(r=> r.type==='spouse');
+    for(let iter=0; iter<chars.length+5; iter++){
+      let changed = false;
+      chars.forEach(c=>{
+        const parents = parentsOf[c.id] || [];
+        let required = depth[c.id];
+        parents.forEach(pid=>{ required = Math.max(required, depth[pid] + 1); });
+        if(required !== depth[c.id]){ depth[c.id] = required; changed = true; }
+      });
+      spousePairs.forEach(r=>{
+        const maxD = Math.max(depth[r.a], depth[r.b]);
+        if(depth[r.a] !== maxD){ depth[r.a] = maxD; changed = true; }
+        if(depth[r.b] !== maxD){ depth[r.b] = maxD; changed = true; }
+      });
+      if(!changed) break;
     }
-    chars.forEach(c=> computeDepth(c.id, new Set()));
 
     const byDepth = {};
     chars.forEach(c=>{
@@ -775,12 +791,29 @@
       if(rel.type === 'parent'){
         const x1 = a.x + CARD_W/2, y1 = a.y + CARD_H;
         const x2 = b.x + CARD_W/2, y2 = b.y;
-        const midY = (y1+y2)/2;
         const path = document.createElementNS('http://www.w3.org/2000/svg','path');
-        path.setAttribute('d', `M ${x1} ${y1} L ${x1} ${midY} L ${x2} ${midY} L ${x2} ${y2}`);
+        path.setAttribute('d', `M ${x1} ${y1} L ${x2} ${y2}`);
         const g = document.createElementNS('http://www.w3.org/2000/svg','g');
         g.setAttribute('class', 'edge-family' + (dimEdge ? ' edge-dim' : ''));
         g.appendChild(path);
+
+        const hit = document.createElementNS('http://www.w3.org/2000/svg','path');
+        hit.setAttribute('class','edge-hit');
+        hit.setAttribute('d', `M ${x1} ${y1} L ${x2} ${y2}`);
+        hit.addEventListener('click', ()=> openRelForEdit(rel.id));
+        g.appendChild(hit);
+
+        [[x1,y1],[x2,y2]].forEach(([px,py])=>{
+          const dot = document.createElementNS('http://www.w3.org/2000/svg','circle');
+          dot.setAttribute('cx', px); dot.setAttribute('cy', py);
+          dot.setAttribute('r', 3); dot.setAttribute('fill', 'var(--c-parent)');
+          g.appendChild(dot);
+        });
+
+        const titleEl = document.createElementNS('http://www.w3.org/2000/svg','title');
+        titleEl.textContent = `${a.name} is a parent of ${b.name}`;
+        g.appendChild(titleEl);
+
         edgeLayer.appendChild(g);
       } else {
         const ca = cardCenter(a), cb = cardCenter(b);
@@ -1070,7 +1103,9 @@
         const years = (c.birth||c.death) ? `${c.birth||'?'}–${c.death||'…'}` : '';
         const marriagePart = c.marriageYear ? `m. ${c.marriageYear}` : '';
         const aliveTags = [c.alive1858?'alive 1858':null, c.alive1875?'alive 1875':null].filter(Boolean).join(', ');
-        const placePart = c.birthplace && c.residence ? `b. ${c.birthplace} → ${c.residence}` : (c.birthplace ? `b. ${c.birthplace}` : (c.residence ? `lives: ${c.residence}` : ''));
+        const residenceList = Array.isArray(c.residences) ? c.residences.filter(Boolean) : (c.residence ? [c.residence] : []);
+        const residencesStr = residenceList.join(', ');
+        const placePart = c.birthplace && residencesStr ? `b. ${c.birthplace} → ${residencesStr}` : (c.birthplace ? `b. ${c.birthplace}` : (residencesStr ? `lived in: ${residencesStr}` : ''));
         const extras = [years, placePart, marriagePart, aliveTags, c.physical].filter(Boolean).join(' · ');
         const roleLine = [c.role, c.occupation].filter(Boolean).join(' · ');
         const factsLine = c.facts ? escapeHtml(c.facts.length>70 ? c.facts.slice(0,69)+'…' : c.facts) : '';
@@ -1132,6 +1167,48 @@
 
   // ---------- Character modal ----------
   const charOverlay = document.getElementById('charModalOverlay');
+  function refreshBirthplaceOptions(){
+    const places = Array.from(new Set(
+      state.characters.map(c=>c.birthplace).filter(Boolean)
+    )).sort((a,b)=>a.localeCompare(b));
+    document.getElementById('birthplaceOptions').innerHTML =
+      places.map(p=>`<option value="${escapeHtml(p)}"></option>`).join('');
+  }
+
+  function refreshResidenceOptions(){
+    const places = Array.from(new Set(
+      state.characters.flatMap(c=> Array.isArray(c.residences) ? c.residences : (c.residence ? [c.residence] : [])).filter(Boolean)
+    )).sort((a,b)=>a.localeCompare(b));
+    document.getElementById('residenceOptions').innerHTML =
+      places.map(p=>`<option value="${escapeHtml(p)}"></option>`).join('');
+  }
+
+  function makeResidenceRow(value){
+    const row = document.createElement('div');
+    row.className = 'residenceRow';
+    row.innerHTML = `<input type="text" class="residenceInput" list="residenceOptions" placeholder="e.g. Lyon" value="${escapeHtml(value||'')}">
+      <button type="button" class="removeResidence" title="Remove">✕</button>`;
+    row.querySelector('.removeResidence').addEventListener('click', ()=> row.remove());
+    return row;
+  }
+
+  function setResidenceRows(values){
+    const container = document.getElementById('residenceRows');
+    container.innerHTML = '';
+    const list = (values && values.length) ? values : [''];
+    list.forEach(v => container.appendChild(makeResidenceRow(v)));
+  }
+
+  function getResidenceValues(){
+    return Array.from(document.querySelectorAll('#residenceRows .residenceInput'))
+      .map(inp => inp.value.trim())
+      .filter(Boolean);
+  }
+
+  document.getElementById('btnAddResidence').addEventListener('click', ()=>{
+    document.getElementById('residenceRows').appendChild(makeResidenceRow(''));
+  });
+
   function openCharForNew(){
     editingCharId = null;
     document.getElementById('charModalTitle').textContent = 'New character';
@@ -1143,11 +1220,13 @@
     document.getElementById('fBirth').value = '';
     document.getElementById('fDeath').value = '';
     document.getElementById('fBirthplace').value = '';
-    document.getElementById('fResidence').value = '';
+    setResidenceRows([]);
     document.getElementById('fMarriageYear').value = '';
     document.getElementById('fAlive1858').checked = false;
     document.getElementById('fAlive1875').checked = false;
     document.getElementById('btnDeleteChar').style.display = 'none';
+    refreshBirthplaceOptions();
+    refreshResidenceOptions();
     charOverlay.classList.add('show');
     setTimeout(()=>document.getElementById('fName').focus(), 50);
   }
@@ -1164,11 +1243,13 @@
     document.getElementById('fBirth').value = c.birth ?? '';
     document.getElementById('fDeath').value = c.death ?? '';
     document.getElementById('fBirthplace').value = c.birthplace || '';
-    document.getElementById('fResidence').value = c.residence || '';
+    setResidenceRows(Array.isArray(c.residences) ? c.residences : (c.residence ? [c.residence] : []));
     document.getElementById('fMarriageYear').value = c.marriageYear ?? '';
     document.getElementById('fAlive1858').checked = !!c.alive1858;
     document.getElementById('fAlive1875').checked = !!c.alive1875;
     document.getElementById('btnDeleteChar').style.display = 'inline-block';
+    refreshBirthplaceOptions();
+    refreshResidenceOptions();
     charOverlay.classList.add('show');
   }
   function closeCharModal(){ charOverlay.classList.remove('show'); }
@@ -1188,7 +1269,7 @@
     const birth = birthVal===''? null : parseInt(birthVal,10);
     const death = deathVal===''? null : parseInt(deathVal,10);
     const birthplace = document.getElementById('fBirthplace').value.trim();
-    const residence = document.getElementById('fResidence').value.trim();
+    const residences = getResidenceValues();
     const marriageYearVal = document.getElementById('fMarriageYear').value;
     const marriageYear = marriageYearVal===''? null : parseInt(marriageYearVal,10);
     const alive1858 = document.getElementById('fAlive1858').checked;
@@ -1198,11 +1279,11 @@
       const c = getChar(editingCharId);
       c.name = name; c.role = role; c.occupation = occupation; c.physical = physical; c.facts = facts;
       c.birth = birth; c.death = death; c.birthplace = birthplace;
-      c.residence = residence;
+      c.residences = residences; delete c.residence;
       c.marriageYear = marriageYear; c.alive1858 = alive1858; c.alive1875 = alive1875;
     } else {
       state.characters.push({
-        id: uid(), name, role, occupation, physical, facts, birth, death, birthplace, residence, marriageYear, alive1858, alive1875,
+        id: uid(), name, role, occupation, physical, facts, birth, death, birthplace, residences, marriageYear, alive1858, alive1875,
         x: 80 + (state.characters.length%5)*40,
         y: 80 + Math.floor(state.characters.length/5)*40
       });
