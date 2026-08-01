@@ -605,14 +605,26 @@
       }
     });
 
-    // depth = longest chain of parent->child from a root
+    // birth-year bucket: converts birth year into a row number so older
+    // characters are pulled toward the top even without a recorded parent link
+    const birthYears = chars.filter(c=> typeof c.birth === 'number').map(c=>c.birth);
+    const minBirth = birthYears.length ? Math.min(...birthYears) : null;
+    const YEARS_PER_ROW = 25; // roughly one generation
+    function birthBucket(c){
+      if(typeof c.birth !== 'number' || minBirth===null) return 0;
+      return Math.floor((c.birth - minBirth) / YEARS_PER_ROW);
+    }
+
+    // depth = the deeper of (a) longest chain of parent->child from a root,
+    // and (b) this person's birth-year bucket — so a parent's row is always
+    // above every child's row, AND older people are pulled toward the top.
     const depth = {};
     function computeDepth(id, visiting){
       if(depth[id] !== undefined) return depth[id];
       if(visiting.has(id)) return 0; // cycle guard
       visiting.add(id);
       const parents = parentsOf[id] || [];
-      let d = 0;
+      let d = birthBucket(getChar(id));
       parents.forEach(pid=>{ d = Math.max(d, computeDepth(pid, visiting) + 1); });
       visiting.delete(id);
       depth[id] = d;
